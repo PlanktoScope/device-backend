@@ -62,11 +62,6 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, handler_stop_signals)
     signal.signal(signal.SIGTERM, handler_stop_signals)
 
-    # Create script PID file, so it's easy to kill the main process without ravaging all python script in the OS
-    # TODO: don't make a PID file - supervise with systemd or Docker instead
-    with open('/tmp/planktoscope-processing-segmenter_pid', 'w') as f:
-        f.write(str(os.getpid()))
-
     export_path = "/home/pi/PlanktoScope/export"  # FIXME: this path is incorrect - why doesn't it cause side effects?
     # check if this path exists
     if not os.path.exists(export_path):
@@ -107,5 +102,4 @@ if __name__ == "__main__":
     if segmenter_thread:
         segmenter_thread.close()
 
-    os.remove('/tmp/planktoscope-processing-segmenter_pid')
     logger.info("Bye!")
