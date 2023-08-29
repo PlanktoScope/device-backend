@@ -32,9 +32,10 @@ import planktoscope.display # Fan HAT OLED screen
 
 # enqueue=True is necessary so we can log accross modules
 # rotation happens everyday at 01:00 if not restarted
+# TODO: ensure the log directory exists
 logger.add(
     # sys.stdout,
-    "PlanktoScope-controller_{time}.log",
+    "device-backend-logs/control/{time}.log",
     rotation="5 MB",
     retention="1 week",
     compression=".tar.gz",
