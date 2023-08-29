@@ -35,7 +35,7 @@ import planktoscope.display # Fan HAT OLED screen
 # TODO: ensure the log directory exists
 logger.add(
     # sys.stdout,
-    "device-backend-logs/control/{time}.log",
+    "/home/pi/device-backend-logs/control/{time}.log",
     rotation="5 MB",
     retention="1 week",
     compression=".tar.gz",
