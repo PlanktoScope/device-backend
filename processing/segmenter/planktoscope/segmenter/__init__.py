@@ -42,6 +42,7 @@ import select
 
 # Basic planktoscope libraries
 import planktoscope.identity
+import planktoscope.uuidName
 import planktoscope.mqtt
 import planktoscope.segmenter.operations
 import planktoscope.segmenter.encoder
