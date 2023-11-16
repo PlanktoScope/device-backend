@@ -115,8 +115,73 @@ class ImagerProcess(multiprocessing.Process):
         self.__export_path = ""
         self.__global_metadata = None
 
-        #
-        #
+        #logger.info("Initialising the camera with the default settings")
+        # TODO identify the camera parameters that can be accessed and initialize them
+        #logger.success("planktoscope.imager is initialised and ready to go!")
+
+    # copied #
+    def __message_image(self, last_message):
+        """Actions for when we receive a message"""
+        if (
+            "sleep" not in last_message
+            or "volume" not in last_message
+            or "nb_frame" not in last_message
+            or "pump_direction" not in last_message
+        ):
+            logger.error(f"The received message has the wrong argument {last_message}")
+            self.imager_client.client.publish("status/imager", '{"status":"Error"}')
+            return
+        self.__imager.change(planktoscope.imagernew.state_machine.Imaging)
+
+        # Get duration to wait before an image from the different received arguments
+        self.__sleep_before = float(last_message["sleep"])
+
+        # Get volume in between two images from the different received arguments
+        self.__pump_volume = float(last_message["volume"])
+
+        # Get the pump direction message
+        self.__pump_direction = last_message["pump_direction"]
+
+        # Get the number of frames to image from the different received arguments
+        self.__img_goal = int(last_message["nb_frame"])
+
+        # Reset the counter to 0
+        self.__img_done = 0
+
+        self.imager_client.client.publish("status/imager", '{"status":"Started"}')
+
+    # copied #
+    def __message_stop(self):
+        self.imager_client.client.unsubscribe("status/pump")
+
+        # Stops the pump
+        self.imager_client.client.publish("actuator/pump", '{"action": "stop"}')
+
+        logger.info("The imaging has been interrupted.")
+
+        # Publish the status "Interrupted" to via MQTT to Node-RED
+        self.imager_client.client.publish("status/imager", '{"status":"Interrupted"}')
+
+        self.__imager.change(planktoscope.imagernew.state_machine.Stop)
+
+    # copied #
+    def __pump_message(self):
+        """Sends a message to the pump process"""
+
+        # Pump during a given volume
+        self.imager_client.client.publish(
+            "actuator/pump",
+            json.dumps(
+                {
+                    "action": "move",
+                    "direction": self.__pump_direction,
+                    "volume": self.__pump_volume,
+                    "flowrate": 2,
+                }
+            ),
+        )
+
+    
 
     #@logger.catch
     #def treat_message(self):
@@ -170,14 +235,16 @@ class ImagerProcess(multiprocessing.Process):
             logger.success("Camera is READY!")
 
             ################### Move to the state of getting ready to start instead of stop by default
-            self.__imager.change(planktoscope.imagernew.state_machine.Imaging)
+            #self.__imager.change(planktoscope.imagernew.state_machine.Imaging)
 
             ################### While loop for capturing commands from Node-RED (later! the display is prior)
             while not self.stop_event.is_set():
-                # Do nothing instead of calling treat_message()
+                """if self.imager_client.new_message_received():
+                    self.treat_message()
+                self.state_machine()"""
+                # Do nothing instead of message reception and treatment
                 pass
                 time.sleep(0.1)
-                #self.imager_client.client.publish("status/imager", '{"status":"Started"}')
 
         finally:
             logger.info("Shutting down the imager process")

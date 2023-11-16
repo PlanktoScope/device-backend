@@ -49,6 +49,7 @@ class picamera:
         self.__height = self.__picam.camera_properties["PixelArraySize"][1]
 
         # Start recording with video encoding and writing video frames
+        # self.__picam.start_preview(Preview.QT)
         self.__picam.start_recording(JpegEncoder(), FileOutput(self.__output), Quality.HIGH)
 
     @property
@@ -71,6 +72,8 @@ class picamera:
     @property
     def resolution(self):
         return self.__resolution
+    
+    # TODO define the setters and getters of the parameters managed by picamera
 
     """@resolution.setter
     def resolution(self, resolution):
