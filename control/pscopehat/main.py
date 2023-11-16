@@ -8,7 +8,7 @@ from loguru import logger
 
 import planktoscope.mqtt
 import planktoscope.stepper
-import planktoscope.imager
+import planktoscope.imagernew
 import planktoscope.light # Fan HAT LEDs
 import planktoscope.identity
 import planktoscope.uuidName # Note: this is deprecated.
@@ -95,7 +95,7 @@ if __name__ == "__main__":
     # Starts the imager control process
     logger.info("Starting the imager control process (step 3/5)")
     try:
-        imager_thread = planktoscope.imager.ImagerProcess(shutdown_event)
+        imager_thread = planktoscope.imagernew.ImagerProcess(shutdown_event)
     except:
         logger.error("The imager control process could not be started")
         imager_thread = None
