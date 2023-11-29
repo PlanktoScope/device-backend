@@ -16,6 +16,42 @@ url = "https://www.piwheels.org/simple"
 reference = "piwheels"
 
 [[package]]
+name = "imageio"
+version = "2.33.0"
+description = "Library for reading and writing a wide range of image, video, scientific, and volumetric data formats."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "imageio-2.33.0-py3-none-any.whl", hash = "sha256:a413a55fdc7dc27313c3887c803400368537fe661bdbf230c8e395c6eb7f6c7e"},
+]
+
+[package.dependencies]
+numpy = "*"
+pillow = ">=8.3.2"
+
+[package.extras]
+all-plugins = ["astropy", "av", "imageio-ffmpeg", "pillow-heif", "psutil", "tifffile"]
+all-plugins-pypy = ["av", "imageio-ffmpeg", "pillow-heif", "psutil", "tifffile"]
+build = ["wheel"]
+dev = ["black", "flake8", "fsspec[github]", "pytest", "pytest-cov"]
+docs = ["numpydoc", "pydata-sphinx-theme", "sphinx (<6)"]
+ffmpeg = ["imageio-ffmpeg", "psutil"]
+fits = ["astropy"]
+full = ["astropy", "av", "black", "flake8", "fsspec[github]", "gdal", "imageio-ffmpeg", "itk", "numpydoc", "pillow-heif", "psutil", "pydata-sphinx-theme", "pytest", "pytest-cov", "sphinx (<6)", "tifffile", "wheel"]
+gdal = ["gdal"]
+itk = ["itk"]
+linting = ["black", "flake8"]
+pillow-heif = ["pillow-heif"]
+pyav = ["av"]
+test = ["fsspec[github]", "pytest", "pytest-cov"]
+tifffile = ["tifffile"]
+
+[package.source]
+type = "legacy"
+url = "https://www.piwheels.org/simple"
+reference = "piwheels"
+
+[[package]]
 name = "loguru"
 version = "0.5.3"
 description = "Python logging made (stupidly) simple"
@@ -31,6 +67,28 @@ win32-setctime = {version = ">=1.0.0", markers = "sys_platform == \"win32\""}
 
 [package.extras]
 dev = ["Sphinx (>=2.2.1)", "black (>=19.10b0)", "codecov (>=2.0.15)", "colorama (>=0.3.4)", "flake8 (>=3.7.7)", "isort (>=5.1.1)", "pytest (>=4.6.2)", "pytest-cov (>=2.7.1)", "sphinx-autobuild (>=0.7.1)", "sphinx-rtd-theme (>=0.4.3)", "tox (>=3.9.0)", "tox-travis (>=0.12)"]
+
+[package.source]
+type = "legacy"
+url = "https://www.piwheels.org/simple"
+reference = "piwheels"
+
+[[package]]
+name = "networkx"
+version = "3.2.1"
+description = "Python package for creating and manipulating graphs and networks"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "networkx-3.2.1-py3-none-any.whl", hash = "sha256:3b1e88e36a1e90b62a213e17c03beda627f96d3451566d232e686e89049aa035"},
+]
+
+[package.extras]
+default = ["matplotlib (>=3.5)", "numpy (>=1.22)", "pandas (>=1.4)", "scipy (>=1.9,!=1.11.0,!=1.11.1)"]
+developer = ["changelist (==0.4)", "mypy (>=1.1)", "pre-commit (>=3.2)", "rtoml"]
+doc = ["nb2plots (>=0.7)", "nbconvert (<7.9)", "numpydoc (>=1.6)", "pillow (>=9.4)", "pydata-sphinx-theme (>=0.14)", "sphinx (>=7)", "sphinx-gallery (>=0.14)", "texext (>=0.6.7)"]
+extra = ["lxml (>=4.6)", "pydot (>=1.4.2)", "pygraphviz (>=1.11)", "sympy (>=1.10)"]
+test = ["pytest (>=7.2)", "pytest-cov (>=4.0)"]
 
 [package.source]
 type = "legacy"
@@ -70,6 +128,21 @@ files = [
 numpy = [
     {version = ">=1.21.2", markers = "python_version >= \"3.9\" and platform_system == \"Darwin\" and platform_machine == \"arm64\""},
     {version = ">=1.19.3", markers = "python_version >= \"3.8\" and platform_system == \"Linux\" and platform_machine == \"aarch64\" or python_version >= \"3.9\" and platform_system != \"Darwin\" or python_version >= \"3.9\" and platform_machine != \"arm64\""},
+]
+
+[package.source]
+type = "legacy"
+url = "https://www.piwheels.org/simple"
+reference = "piwheels"
+
+[[package]]
+name = "packaging"
+version = "23.2"
+description = "Core utilities for Python packages"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "packaging-23.2-py3-none-any.whl", hash = "sha256:f6a99fc6f2edcd10c7194f27328f1dd5e1a04d24720927bcf0879d6166868a62"},
 ]
 
 [package.source]
@@ -144,6 +217,28 @@ url = "https://www.piwheels.org/simple"
 reference = "piwheels"
 
 [[package]]
+name = "pillow"
+version = "10.1.0"
+description = "Python Imaging Library (Fork)"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "Pillow-10.1.0-cp311-cp311-linux_armv6l.whl", hash = "sha256:fc753ba019a65eeaa2612d30e3f2f6993bdd7ab79f388b682848af57749ce5d6"},
+    {file = "Pillow-10.1.0-cp311-cp311-linux_armv7l.whl", hash = "sha256:fc753ba019a65eeaa2612d30e3f2f6993bdd7ab79f388b682848af57749ce5d6"},
+    {file = "Pillow-10.1.0-cp39-cp39-linux_armv6l.whl", hash = "sha256:6c49b6056a6030c50d3818ba50e139638e3ac313ed177abb82a7759a7788a53e"},
+    {file = "Pillow-10.1.0-cp39-cp39-linux_armv7l.whl", hash = "sha256:6c49b6056a6030c50d3818ba50e139638e3ac313ed177abb82a7759a7788a53e"},
+]
+
+[package.extras]
+docs = ["furo", "olefile", "sphinx (>=2.4)", "sphinx-copybutton", "sphinx-inline-tabs", "sphinx-removed-in", "sphinxext-opengraph"]
+tests = ["check-manifest", "coverage", "defusedxml", "markdown2", "olefile", "packaging", "pyroma", "pytest", "pytest-cov", "pytest-timeout"]
+
+[package.source]
+type = "legacy"
+url = "https://www.piwheels.org/simple"
+reference = "piwheels"
+
+[[package]]
 name = "python-dateutil"
 version = "2.8.2"
 description = "Extensions to the standard Python datetime module"
@@ -170,6 +265,61 @@ python-versions = "*"
 files = [
     {file = "pytz-2023.3-py3-none-any.whl", hash = "sha256:dcb23b3d3f96b1c61a06ccc55e8b19dbb430b7571dc8a112432909a14dd64063"},
 ]
+
+[package.source]
+type = "legacy"
+url = "https://www.piwheels.org/simple"
+reference = "piwheels"
+
+[[package]]
+name = "pywavelets"
+version = "1.5.0"
+description = "PyWavelets, wavelet transform module"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "pywavelets-1.5.0-cp311-cp311-linux_armv6l.whl", hash = "sha256:da6565d04e14ba6e5e5c0f312dad7db10585a3db9f2ad3f0b77f51d7c00628ad"},
+    {file = "pywavelets-1.5.0-cp311-cp311-linux_armv7l.whl", hash = "sha256:da6565d04e14ba6e5e5c0f312dad7db10585a3db9f2ad3f0b77f51d7c00628ad"},
+    {file = "pywavelets-1.5.0-cp39-cp39-linux_armv6l.whl", hash = "sha256:76e369b050361ef4b0d7b8606ebd0c5ad03f0923df189c762ecf6749ec14101e"},
+    {file = "pywavelets-1.5.0-cp39-cp39-linux_armv7l.whl", hash = "sha256:76e369b050361ef4b0d7b8606ebd0c5ad03f0923df189c762ecf6749ec14101e"},
+]
+
+[package.dependencies]
+numpy = ">=1.22.4,<2.0"
+
+[package.source]
+type = "legacy"
+url = "https://www.piwheels.org/simple"
+reference = "piwheels"
+
+[[package]]
+name = "scikit-image"
+version = "0.19.3"
+description = "Image processing in Python"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "scikit_image-0.19.3-cp37-cp37m-linux_armv6l.whl", hash = "sha256:472141d7f4303b07b2ee10880b448f4c40b98a2a095d304004487bbbcaca6235"},
+    {file = "scikit_image-0.19.3-cp37-cp37m-linux_armv7l.whl", hash = "sha256:472141d7f4303b07b2ee10880b448f4c40b98a2a095d304004487bbbcaca6235"},
+    {file = "scikit_image-0.19.3-cp39-cp39-linux_armv6l.whl", hash = "sha256:b3e013d27d4c157c5e1359c8ab0aae6a56a3bdaa4014e020e8ee2233ae3c120f"},
+    {file = "scikit_image-0.19.3-cp39-cp39-linux_armv7l.whl", hash = "sha256:b3e013d27d4c157c5e1359c8ab0aae6a56a3bdaa4014e020e8ee2233ae3c120f"},
+]
+
+[package.dependencies]
+imageio = ">=2.4.1"
+networkx = ">=2.2"
+numpy = ">=1.17.0"
+packaging = ">=20.0"
+pillow = ">=6.1.0,<7.1.0 || >7.1.0,<7.1.1 || >7.1.1,<8.3.0 || >8.3.0"
+PyWavelets = ">=1.1.1"
+scipy = ">=1.4.1"
+tifffile = ">=2019.7.26"
+
+[package.extras]
+data = ["pooch (>=1.3.0)"]
+docs = ["cloudpickle (>=0.2.1)", "dask[array] (>=0.15.0,!=2.17.0)", "ipywidgets", "kaleido", "matplotlib (>=3.3)", "myst-parser", "numpydoc (>=1.0)", "pandas (>=0.23.0)", "plotly (>=4.14.0)", "pooch (>=1.3.0)", "pytest-runner", "scikit-learn", "seaborn (>=0.7.1)", "sphinx (>=1.8)", "sphinx-copybutton", "sphinx-gallery (>=0.10.1)", "tifffile (>=2020.5.30)"]
+optional = ["SimpleITK", "astropy (>=3.1.2)", "cloudpickle (>=0.2.1)", "dask[array] (>=1.0.0,!=2.17.0)", "matplotlib (>=3.0.3)", "pooch (>=1.3.0)", "pyamg", "qtpy"]
+test = ["asv", "codecov", "flake8", "matplotlib (>=3.0.3)", "pooch (>=1.3.0)", "pytest (>=5.2.0)", "pytest-cov (>=2.7.0)", "pytest-faulthandler", "pytest-localserver"]
 
 [package.source]
 type = "legacy"
@@ -213,6 +363,27 @@ url = "https://www.piwheels.org/simple"
 reference = "piwheels"
 
 [[package]]
+name = "tifffile"
+version = "2023.9.26"
+description = "Read and write TIFF files"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "tifffile-2023.9.26-py3-none-any.whl", hash = "sha256:f0842b1c20d909b76c0c4486565ade7587d658de129ee712f7eaaf7d15465bf9"},
+]
+
+[package.dependencies]
+numpy = "*"
+
+[package.extras]
+all = ["defusedxml", "fsspec", "imagecodecs (>=2023.8.12)", "lxml", "matplotlib", "zarr"]
+
+[package.source]
+type = "legacy"
+url = "https://www.piwheels.org/simple"
+reference = "piwheels"
+
+[[package]]
 name = "tzdata"
 version = "2023.3"
 description = "Provider of IANA time zone data"
@@ -248,4 +419,4 @@ reference = "piwheels"
 [metadata]
 lock-version = "2.0"
 python-versions = "~3.9.2"
-content-hash = "d8863d6a272448266fa835cf1ff32fd7bc3a4ded7d06ad7a1d0172dc7a1759a8"
+content-hash = "e4eedbd1021a78e983e2314e199ea797a463d8e811e4fde88dc279fa5c69f870"

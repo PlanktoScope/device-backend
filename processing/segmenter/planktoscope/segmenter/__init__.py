@@ -52,8 +52,6 @@ import planktoscope.segmenter.ecotaxa
 ################################################################################
 # Other image processing Libraries
 ################################################################################
-import skimage.util
-import skimage.transform
 import skimage.measure
 import skimage.exposure
 import cv2
