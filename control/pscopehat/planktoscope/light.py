@@ -45,7 +45,7 @@ class i2c_led:
         id_reset = 0x06
 
     DEVICE_ADDRESS = 0x64
-    # This constant defines the voltage sent to the LED, 10 allows the use of the full ISO scale
+    # This constant defines the current (mA) sent to the LED, 10 allows the use of the full ISO scale and results in a voltage of 2.77v
     DEFAULT_CURRENT = 10
 
     LED_selectPin = 18
