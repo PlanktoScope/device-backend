@@ -49,18 +49,6 @@ import planktoscope.segmenter.encoder
 import planktoscope.segmenter.streamer
 import planktoscope.segmenter.ecotaxa
 
-
-################################################################################
-# Morphocut Libraries
-################################################################################
-# import morphocut
-# import morphocut.file
-# import morphocut.image
-# import morphocut.stat
-# import morphocut.stream
-# import morphocut.str
-# import morphocut.contrib.zooprocess
-
 ################################################################################
 # Other image processing Libraries
 ################################################################################
