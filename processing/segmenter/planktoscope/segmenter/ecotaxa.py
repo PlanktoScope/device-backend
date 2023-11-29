@@ -21,7 +21,6 @@ from loguru import logger
 
 import numpy
 import pandas
-import morphocut.contrib.ecotaxa
 import zipfile
 import os
 import io
