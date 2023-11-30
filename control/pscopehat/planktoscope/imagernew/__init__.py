@@ -84,7 +84,7 @@ class ImagerProcess(multiprocessing.Process):
                 logger.error("This error can't be recovered from, terminating now")
                 raise e
 
-        if self.__camera.sensor_name == "IMX219":  # Camera v2.1
+        """if self.__camera.sensor_name == "IMX219":  # Camera v2.1
             self.__resolution = (3280, 2464)
         elif self.__camera.sensor_name == "IMX477":  # Camera HQ
             self.__resolution = (4056, 3040)
@@ -92,20 +92,17 @@ class ImagerProcess(multiprocessing.Process):
             self.__resolution = (1280, 1024)
             logger.error(
                 f"The connected camera {self.__camera.sensor_name} is not recognized, please check your camera"
-            )
+            )"""
 
-        self.__iso = iso
-        self.__shutter_speed = shutter_speed
-        self.__exposure_mode = "auto"
+        #self.__iso = iso
+        #self.__shutter_speed = shutter_speed
+        self.__exposure_mode = "normal" #"auto"
         self.__white_balance = "off"
         self.__white_balance_gain = (
-            int(configuration.get("red_gain", 2.00) * 100),
-            int(configuration.get("blue_gain", 1.40) * 100),
+            configuration.get("red_gain", 2.00),
+            configuration.get("blue_gain", 1.40)
         )
-        self.__image_gain = (
-            int(configuration.get("analog_gain", 1.00) * 100),
-            int(configuration.get("digital_gain", 1.00) * 100),
-        )
+        self.__image_gain = configuration.get("analog_gain", 1.00)
 
         self.__base_path = "/home/pi/data/img"
         # Let's make sure the base path exists
@@ -115,9 +112,20 @@ class ImagerProcess(multiprocessing.Process):
         self.__export_path = ""
         self.__global_metadata = None
 
-        #logger.info("Initialising the camera with the default settings")
+        logger.info("Initialising the camera with the default settings")
         # TODO identify the camera parameters that can be accessed and initialize them
-        #logger.success("planktoscope.imager is initialised and ready to go!")
+        self.__camera.exposure_mode = self.__exposure_mode
+        time.sleep(0.1)
+        
+        self.__camera.white_balance = self.__white_balance
+        time.sleep(0.1)
+
+        self.__camera.white_balance_gain = self.__white_balance_gain
+        time.sleep(0.1)
+
+        self.__camera.image_gain = self.__image_gain
+
+        logger.success("planktoscope.imager is initialised and ready to go!")
 
     # copied #
     def __message_image(self, last_message):
@@ -181,10 +189,23 @@ class ImagerProcess(multiprocessing.Process):
             ),
         )
 
-    
+    # TODO replicate the remaining methods of the initial imager
+
+    #def __message_update(self, last_message):
+
+    #def __message_settings(self, last_message):
 
     #@logger.catch
     #def treat_message(self):
+
+    #def __state_imaging(self):
+
+    #def __state_capture(self):
+
+    #def __capture_error(self, message=""):
+
+    #@logger.catch
+    #def state_machine(self):
 
     ################################################################################
     # While loop for capturing commands from Node-RED
@@ -216,44 +237,42 @@ class ImagerProcess(multiprocessing.Process):
             )
 
         logger.info("Starting the streaming server thread")
-        try:
-            address = ("", 8000)
-            fps = 15
-            refresh_delay = 1 / fps
-            handler = functools.partial(
-                planktoscope.imagernew.stream.StreamingHandler, refresh_delay, self.streaming_output
-            )
-            server = planktoscope.imagernew.stream.StreamingServer(address, handler)
-            self.streaming_thread = threading.Thread(
-                target=server.serve_forever, daemon=True
-            )
-            self.streaming_thread.start()
+        address = ("", 8000)
+        fps = 15
+        refresh_delay = 1 / fps
+        handler = functools.partial(
+            planktoscope.imagernew.stream.StreamingHandler, refresh_delay, self.streaming_output
+        )
+        server = planktoscope.imagernew.stream.StreamingServer(address, handler)
+        self.streaming_thread = threading.Thread(
+            target=server.serve_forever, daemon=True
+        )
+        self.streaming_thread.start()
 
-            # Publish the status "Ready" to Node-RED via MQTT
-            self.imager_client.client.publish("status/imager", '{"status":"Ready"}')
+        # Publish the status "Ready" to Node-RED via MQTT
+        self.imager_client.client.publish("status/imager", '{"status":"Ready"}')
 
-            logger.success("Camera is READY!")
+        logger.success("Camera is READY!")
 
-            ################### Move to the state of getting ready to start instead of stop by default
-            #self.__imager.change(planktoscope.imagernew.state_machine.Imaging)
+        ################### Move to the state of getting ready to start instead of stop by default
+        #self.__imager.change(planktoscope.imagernew.state_machine.Imaging)
 
-            ################### While loop for capturing commands from Node-RED (later! the display is prior)
-            while not self.stop_event.is_set():
-                """if self.imager_client.new_message_received():
-                    self.treat_message()
-                self.state_machine()"""
-                # Do nothing instead of message reception and treatment
-                pass
-                time.sleep(0.1)
+        ################### While loop for capturing commands from Node-RED (later! the display is prior)
+        while not self.stop_event.is_set():
+            """if self.imager_client.new_message_received():
+                self.treat_message()
+            self.state_machine()"""
+            # Do nothing instead of message reception and treatment
+            pass
+            time.sleep(0.1)
 
-        finally:
-            logger.info("Shutting down the imager process")
-            self.imager_client.client.publish("status/imager", '{"status":"Dead"}')
-            logger.debug("Stopping picamera")
-            self.__camera.stop()
-            self.__camera.close()
-            logger.debug("Stopping the streaming thread")
-            server.shutdown()
-            logger.debug("Stopping MQTT")
-            self.imager_client.shutdown()
-            logger.success("Imager process shut down! See you!")
+        logger.info("Shutting down the imager process")
+        self.imager_client.client.publish("status/imager", '{"status":"Dead"}')
+        logger.debug("Stopping picamera")
+        self.__camera.stop()
+        self.__camera.close()
+        logger.debug("Stopping the streaming thread")
+        server.shutdown()
+        logger.debug("Stopping MQTT")
+        self.imager_client.shutdown()
+        logger.success("Imager process shut down! See you!")
