@@ -94,17 +94,17 @@ if __name__ == "__main__":
 
     # TODO try to isolate the imager thread (or another thread)
     # Starts the imager control process
-    logger.info("Starting the imager control process (step 3/5)")
+    """logger.info("Starting the imager control process (step 3/5)")
     try:
         imager_thread = planktoscope.imagernew.ImagerProcess(shutdown_event)
     except:
         logger.error("The imager control process could not be started")
         imager_thread = None
     else:
-        imager_thread.start()
+        imager_thread.start()"""
 
     # Starts the light process
-    logger.info("Starting the light control process (step 4/5)")
+    """logger.info("Starting the light control process (step 4/5)")
     try:
         light_thread = planktoscope.light.LightProcess(shutdown_event)
     except Exception as e:
@@ -113,7 +113,7 @@ if __name__ == "__main__":
     else:
         light_thread.start()
 
-    logger.info("Starting the display control (step 5/5)")
+    logger.info("Starting the display control (step 5/5)")"""
     display = planktoscope.display.Display()
 
     logger.success("Looks like everything is set up and running, have fun!")
@@ -124,9 +124,9 @@ if __name__ == "__main__":
         if not stepper_thread.is_alive():
             logger.error("The stepper process died unexpectedly! Oh no!")
             break
-        if not imager_thread or not imager_thread.is_alive():
+        """if not imager_thread or not imager_thread.is_alive():
             logger.error("The imager process died unexpectedly! Oh no!")
-            break
+            break"""
         time.sleep(1)
 
     display.display_text("Bye Bye!")
@@ -135,16 +135,16 @@ if __name__ == "__main__":
     time.sleep(1)
 
     stepper_thread.join()
-    if imager_thread:
+    """if imager_thread:
         imager_thread.join()
     if light_thread:
-        light_thread.join()
+        light_thread.join()"""
 
     stepper_thread.close()
-    if imager_thread:
+    """if imager_thread:
         imager_thread.close()
     if light_thread:
-        light_thread.close()
+        light_thread.close()"""
 
     display.stop()
 

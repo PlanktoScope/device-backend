@@ -41,13 +41,16 @@ class picamera:
                 logger.exception(f"Closing picamera2 failed because of {e}")
 
         # Configure the camera with a video configuration for streaming video frames
-        config = self.__picam.create_video_configuration(main={"size": (800, 600)})
+        half_resolution = [dim // 2 for dim in self.__picam.sensor_resolution]
+        main_stream = {"size": half_resolution}
+        lores_stream = {"size": (640, 480)}
+        config = self.__picam.create_video_configuration(main_stream, lores_stream, encode="lores")
         self.__picam.configure(config)
 
         # Extract camera properties from picamera2 instance
         self.__sensor_name = self.__picam.camera_properties["Model"].upper()
-        self.__width = self.__picam.camera_properties["PixelArraySize"][0]
-        self.__height = self.__picam.camera_properties["PixelArraySize"][1]
+        self.__width = self.__picam.sensor_resolution[0]
+        self.__height = self.__picam.sensor_resolution[1]
 
         # Start recording with video encoding and writing video frames
         self.__picam.start_preview(Preview.QT)
@@ -215,7 +218,10 @@ class picamera:
             path (str, optional): Path to image file. Defaults to "".
         """
         logger.debug(f"Capturing an image to {path}")
-        metadata = self.__picam.capture_file(path) #use_video_port
+        #metadata = self.__picam.capture_file(path) #use_video_port
+        request = self.__picam.capture_request()
+        request.save("main", path)
+        request.release()
         time.sleep(0.1)
 
     def stop(self):
