@@ -208,8 +208,6 @@ class picamera:
             raise ValueError
 
     # TODO complete (if needed) the setters and getters of resolution, iso & shutter speed
-
-    # TODO create the methods for exposure time (probably it is the shutter speed)
     
 
     # TODO capture images in full resolution (still configuration)
