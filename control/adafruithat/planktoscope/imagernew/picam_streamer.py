@@ -7,7 +7,6 @@ import socketserver
 import http.server
 from threading import Condition
 
-
 ################################################################################
 # Classes for the PiCamera Streaming
 ################################################################################

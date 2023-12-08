@@ -87,21 +87,22 @@ if __name__ == "__main__":
     shutdown_event = multiprocessing.Event()
     shutdown_event.clear()
 
-    # Starts the stepper process for actuators
-    logger.info("Starting the stepper control process (step 2/5)")
-    stepper_thread = planktoscope.stepper.StepperProcess(shutdown_event)
-    stepper_thread.start()
-
     # TODO try to isolate the imager thread (or another thread)
+
+    # Starts the stepper process for actuators
+    """logger.info("Starting the stepper control process (step 2/5)")
+    stepper_thread = planktoscope.stepper.StepperProcess(shutdown_event)
+    stepper_thread.start()"""
+
     # Starts the imager control process
-    """logger.info("Starting the imager control process (step 3/5)")
+    logger.info("Starting the imager control process (step 3/5)")
     try:
         imager_thread = planktoscope.imagernew.ImagerProcess(shutdown_event)
     except:
         logger.error("The imager control process could not be started")
         imager_thread = None
     else:
-        imager_thread.start()"""
+        imager_thread.start()
 
     # Starts the light process
     """logger.info("Starting the light control process (step 4/5)")
@@ -111,9 +112,9 @@ if __name__ == "__main__":
         logger.error("The light control process could not be started")
         light_thread = None
     else:
-        light_thread.start()
+        light_thread.start()"""
 
-    logger.info("Starting the display control (step 5/5)")"""
+    logger.info("Starting the display control (step 5/5)")
     display = planktoscope.display.Display()
 
     logger.success("Looks like everything is set up and running, have fun!")
@@ -121,12 +122,12 @@ if __name__ == "__main__":
     while run:
         # TODO look into ways of restarting the dead threads
         logger.trace("Running around in circles while waiting for someone to die!")
-        if not stepper_thread.is_alive():
+        """if not stepper_thread.is_alive():
             logger.error("The stepper process died unexpectedly! Oh no!")
-            break
-        """if not imager_thread or not imager_thread.is_alive():
-            logger.error("The imager process died unexpectedly! Oh no!")
             break"""
+        if not imager_thread or not imager_thread.is_alive():
+            logger.error("The imager process died unexpectedly! Oh no!")
+            break
         time.sleep(1)
 
     display.display_text("Bye Bye!")
@@ -134,16 +135,16 @@ if __name__ == "__main__":
     shutdown_event.set()
     time.sleep(1)
 
-    stepper_thread.join()
-    """if imager_thread:
+    #stepper_thread.join()
+    if imager_thread:
         imager_thread.join()
-    if light_thread:
+    """if light_thread:
         light_thread.join()"""
 
-    stepper_thread.close()
-    """if imager_thread:
+    #stepper_thread.close()
+    if imager_thread:
         imager_thread.close()
-    if light_thread:
+    """if light_thread:
         light_thread.close()"""
 
     display.stop()

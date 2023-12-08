@@ -4,7 +4,7 @@ from picamera2.outputs import FileOutput
 
 import functools
 
-import planktoscope.imager.picam_streamer as stream
+import planktoscope.imagernew.picam_streamer as stream
 
 
 picam2 = Picamera2()

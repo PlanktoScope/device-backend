@@ -25,13 +25,13 @@ logger.info("planktoscope.imager is loaded")
 class ImagerProcess(multiprocessing.Process):
     """This class contains the main definitions for the imager of the PlanktoScope"""
 
-    def __init__(self, stop_event, iso=100, shutter_speed=1):
+    def __init__(self, stop_event, exposure_time=10000, iso=100):
         """Initialize the Imager class
 
         Args:
             stop_event (multiprocessing.Event): shutdown event
             iso (int, optional): ISO sensitivity. Defaults to 100.
-            shutter_speed (int, optional): Shutter speed of the camera. Defaults to 1.
+            exposure_time (int, optional): Shutter speed of the camera, default to 10000.
         """
         super(ImagerProcess, self).__init__(name="imager")
 
@@ -95,7 +95,7 @@ class ImagerProcess(multiprocessing.Process):
             )"""
 
         #self.__iso = iso
-        #self.__shutter_speed = shutter_speed
+        self.__exposure_time = exposure_time
         self.__exposure_mode = "normal" #"auto"
         self.__white_balance = "off"
         self.__white_balance_gain = (
@@ -114,6 +114,9 @@ class ImagerProcess(multiprocessing.Process):
 
         logger.info("Initialising the camera with the default settings")
         # TODO identify the camera parameters that can be accessed and initialize them
+        self.__camera.exposure_time = self.__exposure_time
+        time.sleep(0.1)
+
         self.__camera.exposure_mode = self.__exposure_mode
         time.sleep(0.1)
         
@@ -242,9 +245,9 @@ class ImagerProcess(multiprocessing.Process):
             fps = 15
             refresh_delay = 1 / fps
             handler = functools.partial(
-                planktoscope.imagernew.stream.StreamingHandler, refresh_delay, self.streaming_output
+                planktoscope.imagernew.picam_streamer.StreamingHandler, refresh_delay, self.streaming_output
             )
-            server = planktoscope.imagernew.stream.StreamingServer(address, handler)
+            server = planktoscope.imagernew.picam_streamer.StreamingServer(address, handler)
             self.streaming_thread = threading.Thread(
                 target=server.serve_forever, daemon=True
             )

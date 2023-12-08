@@ -72,6 +72,27 @@ class picamera:
     @property
     def height(self):
         return self.__height
+    
+    @property
+    def exposure_time(self):
+        return self.__exposure_time
+
+    @exposure_time.setter
+    def exposure_time(self, exposure_time):
+        """Change the camera sensor exposure time (shutter speed) in microseconds 
+        between 0 and 66666 (according to "camera_controls" property).
+
+        Args:
+            exposure_time (int): exposure time in µs
+        """
+        logger.debug(f"Setting the exposure time to {exposure_time}")
+        if 0 < exposure_time < 66666:
+            self.__exposure_time = exposure_time
+            with self.__picam.controls as ctrls:
+                ctrls.ExposureTime = self.__exposure_time
+        else:
+            logger.error(f"The exposure time specified ({exposure_time}) is not valid")
+            raise ValueError
 
     @property
     def exposure_mode(self):
@@ -207,10 +228,10 @@ class picamera:
             )
             raise ValueError
 
-    # TODO complete (if needed) the setters and getters of resolution, iso & shutter speed
+    # TODO complete (if needed) the setters and getters of resolution & iso
     
 
-    # TODO capture images in full resolution (still configuration)
+    # TODO capture images in full/high resolution "while the server is serving indefinitely"
     def capture(self, path=""):
         """Capture an image (in full resolution)
 
