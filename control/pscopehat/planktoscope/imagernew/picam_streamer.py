@@ -79,7 +79,7 @@ class StreamingHandler(http.server.BaseHTTPRequestHandler):
                         time.sleep(self.delay)
 
             except Exception as e:
-                logger.info(f"Removed streaming client {self.client_address}")
+                logger.info(f"Removed streaming client {self.client_address}") #FIXME client_address is not defined, remove it?
         else:
             self.send_error(404)
             self.end_headers()

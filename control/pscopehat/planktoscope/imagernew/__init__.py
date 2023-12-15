@@ -6,6 +6,7 @@ import shutil
 import multiprocessing
 import threading # needed for the streaming server
 import functools # needed for the streaming server
+import queue # needed to create a queue for commands coming to the camera
 
 from loguru import logger
 
@@ -13,6 +14,7 @@ import planktoscope.mqtt
 import planktoscope.imagernew.state_machine
 import planktoscope.imagernew.picamera
 import planktoscope.imagernew.picam_streamer
+import planktoscope.imagernew.picam_threading
 import planktoscope.integrity
 import planktoscope.identity
 
@@ -53,6 +55,7 @@ class ImagerProcess(multiprocessing.Process):
         # parse the config data. If the key is absent, we are using the default value
         self.__camera_type = configuration.get("camera_type", self.__camera_type)
 
+        #self.command_queue = queue.Queue()
         self.stop_event = stop_event
         self.__imager = planktoscope.imagernew.state_machine.Imager()
         self.__img_goal = 0
@@ -67,22 +70,6 @@ class ImagerProcess(multiprocessing.Process):
 
         # Initialize the camera
         self.__camera = planktoscope.imagernew.picamera.picamera(self.streaming_output)
-
-        # Start the streaming
-        try:
-            self.__camera.start()
-        except Exception as e:
-            logger.exception(
-                f"An exception has occured when starting up picamera2: {e}"
-            )
-            try:
-                self.__camera.start(True)
-            except Exception as e:
-                logger.exception(
-                    f"A second exception has occured when starting up picamera2: {e}"
-                )
-                logger.error("This error can't be recovered from, terminating now")
-                raise e
 
         """if self.__camera.sensor_name == "IMX219":  # Camera v2.1
             self.__resolution = (3280, 2464)
@@ -239,8 +226,14 @@ class ImagerProcess(multiprocessing.Process):
                 "status/imager", '{"camera_name":"Not recognized"}'
             )
 
-        logger.info("Starting the streaming server thread")
+        logger.info("Starting the camera and streaming server threads")
         try:
+            # Initialize the camera thread
+            self.camera_thread = planktoscope.imagernew.picam_threading.PicamThread(self.__camera, self.stop_event)
+
+            #TODO Start the video recording
+            self.camera_thread.start()
+
             address = ("", 8000)
             fps = 15
             refresh_delay = 1 / fps
@@ -273,9 +266,10 @@ class ImagerProcess(multiprocessing.Process):
         finally:
             logger.info("Shutting down the imager process")
             self.imager_client.client.publish("status/imager", '{"status":"Dead"}')
-            logger.debug("Stopping picamera")
-            self.__camera.stop()
-            self.__camera.close()
+            #NOTE the resource release task of the camera is handled within the thread
+            #logger.debug("Stopping picamera and its thread")  
+            #self.__camera.stop()
+            #self.__camera.close()
             logger.debug("Stopping the streaming thread")
             server.shutdown()
             logger.debug("Stopping MQTT")

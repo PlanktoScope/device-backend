@@ -24,7 +24,14 @@ import time
 # Class for the implementation of Picamera 2
 ################################################################################
 class picamera:
+    """This class contains the main definitions of picamera2 monitoring the PlanktoScope's camera"""
+
     def __init__(self, output, *args, **kwargs):
+        """Initialize the picamera class
+
+        Args:
+            output (picam_streamer.StreamingOutput): receive encoded video frames directly from the encoder and forward them to network sockets
+        """
         self.__picam = Picamera2()
         self.__controls = {}
         self.__output = output
@@ -53,7 +60,7 @@ class picamera:
         self.__height = self.__picam.sensor_resolution[1]
 
         # Start recording with video encoding and writing video frames
-        self.__picam.start_preview(Preview.QT)
+        self.__picam.start_preview(Preview.QT) #FIXME it's recommended when the image needs to be shown on another networked device
         self.__picam.start_recording(JpegEncoder(), FileOutput(self.__output), Quality.HIGH)
 
     @property
@@ -248,6 +255,7 @@ class picamera:
     def stop(self):
         """Release the camera"""
         logger.debug("Releasing the camera now")
+        self.__picam.stop_preview()
         self.__picam.stop_recording()
 
     def close(self):
