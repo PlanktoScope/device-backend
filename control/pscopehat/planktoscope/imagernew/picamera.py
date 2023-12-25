@@ -63,6 +63,36 @@ class picamera:
         self.__picam.start_preview(Preview.QT) #FIXME it's recommended when the image needs to be shown on another networked device
         self.__picam.start_recording(JpegEncoder(), FileOutput(self.__output), Quality.HIGH)
 
+    #NOTE function drafted as a target of the camera thread (simple version)
+    """def preview_picam(self):
+        try:
+            self.__picam.start()
+        except Exception as e:
+            logger.exception(
+                f"An exception has occured when starting up picamera2: {e}"
+            )
+            try:
+                self.__picam.start(True)
+            except Exception as e:
+                logger.exception(
+                    f"A second exception has occured when starting up picamera2: {e}"
+                )
+                logger.error("This error can't be recovered from, terminating now")
+                raise e
+        try:        
+            while not self.stop_event.is_set():
+                if not self.command_queue.empty():
+                    try:
+                        # Retrieve a command from the queue with a timeout to avoid indefinite blocking
+                        command = self.command_queue.get(timeout=0.1)
+                    except Exception as e:
+                        logger.exception(f"An error has occurred while handling a command: {e}")
+                pass
+                time.sleep(0.01)
+        finally:
+            self.__picam.stop()
+            self.__picam.close()"""
+
     @property
     def sensor_name(self):
         """Sensor name of the connected camera
@@ -243,14 +273,15 @@ class picamera:
         """Capture an image (in full resolution)
 
         Args:
-            path (str, optional): Path to image file. Defaults to "".
+            path (str, optional): Path to image file. Default to "".
         """
         logger.debug(f"Capturing an image to {path}")
         #metadata = self.__picam.capture_file(path) #use_video_port
         request = self.__picam.capture_request()
         request.save("main", path)
-        request.release()
+
         time.sleep(0.1)
+        request.release()
 
     def stop(self):
         """Release the camera"""
