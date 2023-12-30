@@ -41,7 +41,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.dependencies]
-python = "~3.9.2"
+python = ">=3.9.2"
 rpi-gpio = "~0.7.1a4"
 adafruit-blinka = "~8.19.0"
 adafruit-circuitpython-motorkit = "~1.6.3"
