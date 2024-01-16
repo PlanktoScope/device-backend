@@ -440,6 +440,28 @@ docs = ["furo", "olefile", "sphinx (>=2.4)", "sphinx-copybutton", "sphinx-inline
 tests = ["check-manifest", "coverage", "defusedxml", "markdown2", "olefile", "packaging", "pyroma", "pytest", "pytest-cov", "pytest-timeout"]
 
 [[package]]
+name = "pillow"
+version = "10.1.0"
+description = "Python Imaging Library (Fork)"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "Pillow-10.1.0-cp311-cp311-linux_armv6l.whl", hash = "sha256:fc753ba019a65eeaa2612d30e3f2f6993bdd7ab79f388b682848af57749ce5d6"},
+    {file = "Pillow-10.1.0-cp311-cp311-linux_armv7l.whl", hash = "sha256:fc753ba019a65eeaa2612d30e3f2f6993bdd7ab79f388b682848af57749ce5d6"},
+    {file = "Pillow-10.1.0-cp39-cp39-linux_armv6l.whl", hash = "sha256:6c49b6056a6030c50d3818ba50e139638e3ac313ed177abb82a7759a7788a53e"},
+    {file = "Pillow-10.1.0-cp39-cp39-linux_armv7l.whl", hash = "sha256:6c49b6056a6030c50d3818ba50e139638e3ac313ed177abb82a7759a7788a53e"},
+]
+
+[package.extras]
+docs = ["furo", "olefile", "sphinx (>=2.4)", "sphinx-copybutton", "sphinx-inline-tabs", "sphinx-removed-in", "sphinxext-opengraph"]
+tests = ["check-manifest", "coverage", "defusedxml", "markdown2", "olefile", "packaging", "pyroma", "pytest", "pytest-cov", "pytest-timeout"]
+
+[package.source]
+type = "legacy"
+url = "https://www.piwheels.org/simple"
+reference = "piwheels"
+
+[[package]]
 name = "python-dateutil"
 version = "2.8.2"
 description = "Extensions to the standard Python datetime module"
@@ -710,4 +732,4 @@ dev = ["black (>=19.3b0)", "pytest (>=4.6.2)"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9.2"
-content-hash = "3775fdec05cb0fda1149b6e610e0b6b0e6406c6133a93bb4ce8ccfc7001728d4"
+content-hash = "07948339569982f9503607dcec6673a318ae8eba699fb042f635dc0b74b9c49f"

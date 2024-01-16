@@ -65,14 +65,20 @@ loguru = [
   { version = "==0.5.3", source = "piwheels", markers = "platform_machine == 'armv7l'" },
 ]
 opencv-contrib-python-headless = [
-  { version = "==4.5.5.62" , source = "pypi", markers = "platform_machine != 'armv7l'"},
+  { version = "==4.5.5.62", source = "pypi", markers = "platform_machine != 'armv7l'"},
   { version = "==4.5.5.62", source = "piwheels", markers = "platform_machine == 'armv7l'" },
 ]
 scipy = [
-  { version = "==1.11.4" , source = "pypi", markers = "platform_machine != 'armv7l'"},
+  { version = "==1.11.4", source = "pypi", markers = "platform_machine != 'armv7l'"},
   { version = "==1.11.4", source = "piwheels", markers = "platform_machine == 'armv7l'" },
 ]
 scikit-image = [
   { version = "==0.19.3", source = "pypi", markers = "platform_machine != 'armv7l'" },
   { version = "==0.19.3", source = "piwheels", markers = "platform_machine == 'armv7l'" },
+]
+pillow = [
+  # note: this is only an indirect dependency, but we need to download wheels from the appropriate
+  # source, so we must explicitly select it here
+  { version = "==10.1.0", source = "pypi", markers = "platform_machine != 'armv7l'" },
+  { version = "==10.1.0", source = "piwheels", markers = "platform_machine == 'armv7l'" },
 ]
