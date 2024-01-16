@@ -1,0 +1,11 @@
+# numpy/scipy dependencies
+libopenblas0
+libatlas3-base
+
+# opencv dependencies
+libhdf5-103-1
+libopenjp2-7
+libopenexr25
+libavcodec58
+libavformat58
+libswscale5
