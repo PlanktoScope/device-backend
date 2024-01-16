@@ -1,4 +1,4 @@
-FROM python:3.9.2-slim-bullseye
+FROM python:3.9.18-slim-bullseye
 
 # Install dependencies
 
