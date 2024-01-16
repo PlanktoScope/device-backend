@@ -55,7 +55,7 @@ paho-mqtt = [
 numpy = [
   { version = "==1.26.3", source = "pypi", markers = "platform_machine != 'armv7l'" },
   # { version = "==1.26.3", source = "piwheels", markers = "platform_machine == 'armv7l'" },
-  { version = "==1.26.3", url = "https://piwheels.org/simple/numpy/numpy-1.26.3-cp39-cp39-linux_armv7l.whl#sha256=411d10f5630a26dfd3121dfdc7d0941239f4badeb214406264a77f2e26dbcef7", markers = "platform_machine == 'armv7l'" },
+  { url = "https://piwheels.org/simple/numpy/numpy-1.26.3-cp39-cp39-linux_armv7l.whl#sha256=411d10f5630a26dfd3121dfdc7d0941239f4badeb214406264a77f2e26dbcef7", markers = "platform_machine == 'armv7l'" },
 ]
 pandas = [
   { version = "==2.1.4", source = "pypi", markers = "platform_machine != 'armv7l'" },

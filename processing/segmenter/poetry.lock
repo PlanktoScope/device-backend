@@ -153,16 +153,12 @@ description = "Fundamental package for array computing in Python"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "numpy-1.26.3-cp311-cp311-linux_armv6l.whl", hash = "sha256:b7e9c0ab8d37f0206c3971be4224bfd77002c3763869029acf096754c42cdfe7"},
-    {file = "numpy-1.26.3-cp311-cp311-linux_armv7l.whl", hash = "sha256:b7e9c0ab8d37f0206c3971be4224bfd77002c3763869029acf096754c42cdfe7"},
-    {file = "numpy-1.26.3-cp39-cp39-linux_armv6l.whl", hash = "sha256:411d10f5630a26dfd3121dfdc7d0941239f4badeb214406264a77f2e26dbcef7"},
     {file = "numpy-1.26.3-cp39-cp39-linux_armv7l.whl", hash = "sha256:411d10f5630a26dfd3121dfdc7d0941239f4badeb214406264a77f2e26dbcef7"},
 ]
 
 [package.source]
-type = "legacy"
-url = "https://www.piwheels.org/simple"
-reference = "piwheels"
+type = "url"
+url = "https://piwheels.org/simple/numpy/numpy-1.26.3-cp39-cp39-linux_armv7l.whl#sha256=411d10f5630a26dfd3121dfdc7d0941239f4badeb214406264a77f2e26dbcef7"
 
 [[package]]
 name = "opencv-contrib-python-headless"
@@ -732,4 +728,4 @@ dev = ["black (>=19.3b0)", "pytest (>=4.6.2)"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9.2"
-content-hash = "07948339569982f9503607dcec6673a318ae8eba699fb042f635dc0b74b9c49f"
+content-hash = "069abc19783e4d8045eab958417ef62993af8a1d1373004ac177dd20cb36c5f4"
