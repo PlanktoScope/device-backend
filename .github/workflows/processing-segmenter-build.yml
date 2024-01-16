@@ -25,18 +25,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install poetry
-        run: pipx install poetry==1.7.1
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.9'
-
-      - name: Determine build dependencies
-        run: |
-          poetry -C ./processing/segmenter/ export -f requirements.txt -o ./processing/segmenter/requirements.txt
-
       # Build and publish Docker container image
       - name: Get Docker metadata
         id: meta
