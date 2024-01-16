@@ -24,10 +24,12 @@ USER pi
 # the container image.
 COPY pyproject.toml poetry.lock .
 RUN \
-  pip install poetry==1.7.1 && \
-  /home/pi/.local/bin/poetry install --no-root --no-dev --compile && \
-  /home/pi/.local/bin/poetry --no-interaction cache clear pypi --all && \
-  /home/pi/.local/bin/poetry --no-interaction cache clear piwheels --all && \
+  pip install --upgrade pip && \
+  PATH="/home/pi/.local/bin:$PATH" pip install poetry==1.7.1 && \
+  PATH="/home/pi/.local/bin:$PATH" poetry install --no-root --only main --compile && \
+  PATH="/home/pi/.local/bin:$PATH" poetry --no-interaction cache clear pypi --all && \
+  PATH="/home/pi/.local/bin:$PATH" poetry --no-interaction cache clear piwheels --all && \
+  PATH="/home/pi/.local/bin:$PATH" pip cache purge && \
   pip cache purge
 
 # Set up application
