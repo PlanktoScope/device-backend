@@ -11,7 +11,15 @@ RUN \
   rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /tmp/
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
+# Note: cmake is needed to install ninja which is needed to install pyproject.toml-based projects
+RUN \
+  apt-get update && \
+  apt-get -y install cmake && \
+  pip install --no-cache-dir -r /tmp/requirements.txt && \
+  apt-get -y purge cmake && \
+  apt-get -y autoremote && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/*
 
 # Set up application
 
