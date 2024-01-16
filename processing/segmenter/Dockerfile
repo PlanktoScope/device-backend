@@ -17,7 +17,7 @@ RUN \
   apt-get -y install cmake && \
   pip install --no-cache-dir -r /tmp/requirements.txt && \
   apt-get -y purge cmake && \
-  apt-get -y autoremote && \
+  apt-get -y autoremove && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 
