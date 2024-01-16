@@ -25,9 +25,9 @@ USER pi
 COPY pyproject.toml poetry.lock .
 RUN \
   pip install poetry==1.7.1 && \
-  poetry install --no-root --no-dev --compile && \
-  poetry --no-interaction cache clear pypi --all && \
-  poetry --no-interaction cache clear piwheels --all && \
+  /home/pi/.local/bin/poetry install --no-root --no-dev --compile && \
+  /home/pi/.local/bin/poetry --no-interaction cache clear pypi --all && \
+  /home/pi/.local/bin/poetry --no-interaction cache clear piwheels --all && \
   pip cache purge
 
 # Set up application
