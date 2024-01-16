@@ -8,6 +8,7 @@ RUN \
   apt-get -y upgrade && \
   grep -v '^#' /tmp/apt-packages | xargs apt-get -y install --no-install-recommends && \
   apt-get clean && \
+  rm -rf /var/lib/apt/lists/* && \
   rm /tmp/apt-packages
 
 # Drop root user
@@ -23,16 +24,11 @@ USER pi
 # the container image.
 COPY pyproject.toml poetry.lock .
 RUN \
-  apt-get update && \
-  apt-get -y install cmake && \
   pip install poetry==1.7.1 && \
   poetry install --no-root --no-dev --compile && \
   poetry --no-interaction cache clear pypi --all && \
   poetry --no-interaction cache clear piwheels --all && \
-  pip cache purge && \
-  apt-get -y purge cmake && \
-  apt-get -y autoremove && \
-  apt-get clean
+  pip cache purge
 
 # Set up application
 
