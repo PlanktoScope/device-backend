@@ -32,14 +32,15 @@ classifiers = [
   "Topic :: Scientific/Engineering",
 ]
 
-[[tool.poetry.source]]
-name = "piwheels"
-url = "https://www.piwheels.org/simple/"
-priority = "primary"
 
 [[tool.poetry.source]]
 name = "PyPI"
 priority = "primary"
+
+[[tool.poetry.source]]
+name = "piwheels"
+url = "https://www.piwheels.org/simple/"
+priority = "supplemental"
 
 [build-system]
 requires = ["poetry-core"]
@@ -48,7 +49,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.dependencies]
 python = ">=3.9.2"
 paho-mqtt = "~1.6.1"
-numpy = "~1.26.2"
+numpy = "~1.26.3"
 pandas = "~2.1.4"
 loguru = "~0.5.3"
 opencv-contrib-python-headless = "4.5.5.62"
