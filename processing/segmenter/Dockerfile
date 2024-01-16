@@ -35,4 +35,4 @@ RUN \
 # Set up application
 
 COPY planktoscope/ main.py .
-ENTRYPOINT ["python", "./main.py"]
+ENTRYPOINT ["poetry", "run", "python", "main.py"]
