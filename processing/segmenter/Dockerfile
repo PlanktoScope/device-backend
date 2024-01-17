@@ -36,3 +36,4 @@ RUN \
 
 COPY planktoscope/ main.py .
 ENTRYPOINT ["poetry", "run", "python", "main.py"]
+EXPOSE 8001
