@@ -74,6 +74,10 @@ scikit-image = [
 ]
 # note: the following packages are only indirect dependencies, but we need to download wheels from
 # the appropriate sources, so we must explicitly select them here
+scipy = [
+  { version = "==1.11.4", source = "pypi", markers = "platform_machine != 'armv7l'"},
+  { version = "==1.11.4", source = "piwheels", markers = "platform_machine == 'armv7l'"},
+]
 pillow = [
   { version = "==10.1.0", source = "pypi", markers = "platform_machine != 'armv7l'" },
   { version = "==10.1.0", source = "piwheels", markers = "platform_machine == 'armv7l'" },
