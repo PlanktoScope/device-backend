@@ -16,6 +16,9 @@ on:
         description: 'Git ref (optional)'
         required: false
 
+env:
+  REGISTRY_IMAGE: ghcr.io.planktoscope/device-backend-processing-segmenter
+
 jobs:
   build:
     runs-on: ubuntu-latest
