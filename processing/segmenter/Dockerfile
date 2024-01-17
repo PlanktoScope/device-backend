@@ -35,7 +35,7 @@ RUN \
 # Set up application
 
 COPY planktoscope/ main.py .
-ENTRYPOINT ["poetry", "run", "python", "main.py"]
+ENTRYPOINT ["/home/pi/.local/bin/poetry", "run", "python", "main.py"]
 EXPOSE 8001
 VOLUME /home/pi/device-backend-logs/processing/segmenter
 VOLUME /home/pi/data
