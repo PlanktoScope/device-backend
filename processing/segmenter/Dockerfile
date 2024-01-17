@@ -35,7 +35,9 @@ RUN \
 # Set up application
 
 COPY planktoscope/ main.py .
-ENTRYPOINT ["/home/pi/.local/bin/poetry", "run", "python", "main.py"]
+RUN \
+  cat pyproject.toml
+ENTRYPOINT ["/home/pi/.local/bin/poetry", "-C", "/home/pi/device-backend/processing/segmenter", "run", "python", "main.py"]
 EXPOSE 8001
 VOLUME /home/pi/device-backend-logs/processing/segmenter
 VOLUME /home/pi/data
