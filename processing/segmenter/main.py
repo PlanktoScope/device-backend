@@ -23,11 +23,15 @@ from loguru import logger  # for logging with multiprocessing
 
 import planktoscope.segmenter
 
+logs_path = "/home/pi/device-backend-logs/processing/segmenter"
+if not os.path.exists(logs_path):
+    os.makedirs(logs_path)
+
 # enqueue=True is necessary so we can log accross modules
 # rotation happens everyday at 01:00 if not restarted
 # TODO: ensure the log directory exists
 logger.add(
-    "/home/pi/device-backend-logs/processing/segmenter/{time}.log",
+    logs_path + "/{time}.log",
     rotation="5 MB",
     retention="1 week",
     compression=".tar.gz",
