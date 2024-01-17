@@ -68,10 +68,6 @@ opencv-python-headless = [
   { version = "==4.6.0.66", source = "pypi", markers = "platform_machine != 'armv7l'"},
   { version = "==4.6.0.66", source = "piwheels", markers = "platform_machine == 'armv7l'" },
 ]
-scipy = [
-  { version = "==1.11.4", source = "pypi", markers = "platform_machine != 'armv7l'"},
-  { version = "==1.11.4", source = "piwheels", markers = "platform_machine == 'armv7l'" },
-]
 scikit-image = [
   { version = "==0.19.3", source = "pypi", markers = "platform_machine != 'armv7l'" },
   { version = "==0.19.3", source = "piwheels", markers = "platform_machine == 'armv7l'" },
