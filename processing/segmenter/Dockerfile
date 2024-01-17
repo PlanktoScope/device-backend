@@ -15,7 +15,8 @@ RUN \
 
 RUN useradd --create-home pi
 WORKDIR /home/pi/device-backend/processing/segmenter
-USER pi
+# Note: we must set the group in order to avoid running everything with the root group
+USER pi:pi
 
 # Install Python dependencies
 
