@@ -53,8 +53,8 @@ paho-mqtt = [
   { version = "==1.6.1", source = "piwheels", markers = "platform_machine == 'armv7l'" },
 ]
 numpy = [
-  { version = "==1.25.2", source = "pypi", markers = "platform_machine != 'armv7l'" },
-  { version = "==1.25.2", source = "piwheels", markers = "platform_machine == 'armv7l'" },
+  { version = "==1.22.4", source = "pypi", markers = "platform_machine != 'armv7l'" },
+  { version = "==1.22.4", source = "piwheels", markers = "platform_machine == 'armv7l'" },
 ]
 pandas = [
   { version = "==2.1.4", source = "pypi", markers = "platform_machine != 'armv7l'" },
