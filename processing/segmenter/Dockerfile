@@ -11,13 +11,9 @@ RUN \
   rm -rf /var/lib/apt/lists/* && \
   rm /tmp/apt-packages
 
-# Drop root user
-
-RUN useradd --create-home pi
-WORKDIR /home/pi/device-backend/processing/segmenter
-USER pi
-
 # Install Python dependencies
+
+WORKDIR /home/pi/device-backend/processing/segmenter
 
 # Note: cmake is needed to install ninja which is needed to install pyproject.toml-based projects.
 # We must remove it in the same RUN command as where we installed it, if we want to keep it out of
