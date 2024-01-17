@@ -86,8 +86,6 @@ if __name__ == "__main__":
     logger.success("Looks like the segmenter is set up and running, have fun!")
 
     while run:
-        # TODO look into ways of restarting the dead threads
-        logger.trace("Running around in circles while waiting for someone to die!")
         if not segmenter_thread or not segmenter_thread.is_alive():
             logger.error("The segmenter process died unexpectedly! Oh no!")
             break
