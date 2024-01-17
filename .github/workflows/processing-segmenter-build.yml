@@ -26,7 +26,6 @@ jobs:
           - linux/amd64
           - linux/arm64
           - linux/arm/v7
-          - linux/arm/v6
     permissions:
       contents: read
       packages: write
@@ -44,6 +43,8 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/planktoscope/backend-processing-segmenter
+          tags: |
+            type=sha
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -67,6 +68,7 @@ jobs:
           pull: true
           push: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'push tag' }}
           platforms: ${{ matrix.platform }}
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
