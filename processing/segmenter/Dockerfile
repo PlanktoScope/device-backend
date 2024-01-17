@@ -35,7 +35,7 @@ RUN \
 
 COPY main.py .
 COPY planktoscope/ ./planktoscope
-ENTRYPOINT ["/root/.local/bin/poetry", "run", "python", "main.py"]
+ENTRYPOINT ["/usr/local/bin/poetry", "run", "python", "main.py"]
 EXPOSE 8001
 RUN \
   mkdir -p /home/pi/device-backend-logs/processing/segmenter && \
