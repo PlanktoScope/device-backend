@@ -25,12 +25,12 @@ USER pi
 COPY pyproject.toml poetry.lock .
 RUN \
   export PATH="/home/pi/.local/bin:$PATH" && \
-  python -m pip install --upgrade pip==23.3.2 && \
   pip install --no-cache-dir poetry==1.7.1 --extra-index-url https://www.piwheels.org/simple && \
   poetry install --no-root --only main --compile && \
   poetry --no-interaction cache clear pypi --all && \
   poetry --no-interaction cache clear piwheels --all && \
-  pip cache purge
+  pip cache purge && \
+  rm -rf /home/pi/.cache
 
 # Set up application
 
