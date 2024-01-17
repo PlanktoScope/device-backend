@@ -44,13 +44,6 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/planktoscope/backend-processing-segmenter
-          tags: |
-            type=match,pattern=v(.*),group=1
-            type=edge,branch=main
-            type=ref,event=branch,enable=${{ github.ref != format('refs/heads/{0}', 'main') && github.ref != format('refs/heads/{0}', 'main') }}
-            type=ref,event=pr
-            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'stable') }}
-            type=sha
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -74,7 +67,6 @@ jobs:
           pull: true
           push: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'push tag' }}
           platforms: ${{ matrix.platform }}
-          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
