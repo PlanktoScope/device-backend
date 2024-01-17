@@ -63,7 +63,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, handler_stop_signals)
     signal.signal(signal.SIGTERM, handler_stop_signals)
 
-    export_path = "/home/pi/PlanktoScope/export"  # FIXME: this path is incorrect - why doesn't it cause side effects?
+    export_path = "/home/pi/data/export"
     # check if this path exists
     if not os.path.exists(export_path):
         # create the path!
