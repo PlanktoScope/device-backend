@@ -76,9 +76,13 @@ scikit-image = [
   { version = "==0.19.3", source = "pypi", markers = "platform_machine != 'armv7l'" },
   { version = "==0.19.3", source = "piwheels", markers = "platform_machine == 'armv7l'" },
 ]
+# note: the following packages are only indirect dependencies, but we need to download wheels from
+# the appropriate sources, so we must explicitly select them here
 pillow = [
-  # note: this is only an indirect dependency, but we need to download wheels from the appropriate
-  # source, so we must explicitly select it here
   { version = "==10.1.0", source = "pypi", markers = "platform_machine != 'armv7l'" },
   { version = "==10.1.0", source = "piwheels", markers = "platform_machine == 'armv7l'" },
+]
+pywavelets = [
+  { version = "==1.5.0", source = "pypi", markers = "platform_machine != 'armv7l'" },
+  { version = "==1.5.0", source = "piwheels", markers = "platform_machine == 'armv7l'" },
 ]
