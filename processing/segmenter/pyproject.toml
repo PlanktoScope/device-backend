@@ -35,7 +35,7 @@ classifiers = [
 
 [[tool.poetry.source]]
 name = "pypi"
-priority = "primary"
+priority = "fallback"
 
 [[tool.poetry.source]]
 name = "piwheels"
