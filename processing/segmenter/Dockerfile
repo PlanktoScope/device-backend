@@ -14,9 +14,11 @@ RUN \
 # Drop root user
 
 RUN useradd --create-home pi
-WORKDIR /home/pi/device-backend/processing/segmenter
-# Note: we must set the group in order to avoid running everything with the root group
+# Note: we set the group in order to avoid running everything with the root group
 USER pi:pi
+# Note: we explicitly make the working directory to make it with the correct owner
+RUN mkdir -p /home/pi/device-backend/processing/segmenter
+WORKDIR /home/pi/device-backend/processing/segmenter
 
 # Install Python dependencies
 
@@ -45,5 +47,4 @@ EXPOSE 8001
 RUN \
   mkdir -p /home/pi/device-backend-logs/processing/segmenter && \
   echo "Every time the Python backend's segmenter starts, it should create a new file in this directory." >> \
-    /home/pi/device-backend-logs/processing/segmenter/README && \
-  chown -R pi:pi /home/pi
+    /home/pi/device-backend-logs/processing/segmenter/README
