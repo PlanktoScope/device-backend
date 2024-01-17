@@ -53,8 +53,8 @@ paho-mqtt = [
   { version = "==1.6.1", source = "piwheels", markers = "platform_machine == 'armv7l'" },
 ]
 numpy = [
-  { version = "==1.26.3", source = "pypi", markers = "platform_machine != 'armv7l'" },
-  { version = "==1.26.3", source = "piwheels", markers = "platform_machine == 'armv7l'" },
+  { version = "==1.25.2", source = "pypi", markers = "platform_machine != 'armv7l'" },
+  { version = "==1.25.2", source = "piwheels", markers = "platform_machine == 'armv7l'" },
 ]
 pandas = [
   { version = "==2.1.4", source = "pypi", markers = "platform_machine != 'armv7l'" },
@@ -64,10 +64,10 @@ loguru = [
   { version = "==0.5.3", source = "pypi", markers = "platform_machine != 'armv7l'" },
   { version = "==0.5.3", source = "piwheels", markers = "platform_machine == 'armv7l'" },
 ]
-#opencv-python-headless = [
-#  { version = "==4.5.5.66", source = "pypi", markers = "platform_machine != 'armv7l'"},
-#  { version = "==4.5.5.66", source = "piwheels", markers = "platform_machine == 'armv7l'" },
-#]
+opencv-python-headless = [
+  { version = "==4.6.0.66", source = "pypi", markers = "platform_machine != 'armv7l'"},
+  { version = "==4.6.0.66", source = "piwheels", markers = "platform_machine == 'armv7l'" },
+]
 scipy = [
   { version = "==1.11.4", source = "pypi", markers = "platform_machine != 'armv7l'"},
   { version = "==1.11.4", source = "piwheels", markers = "platform_machine == 'armv7l'" },
