@@ -20,22 +20,22 @@ WORKDIR /home/pi/device-backend/processing/segmenter
 # the container image.
 COPY pyproject.toml poetry.lock .
 RUN \
-  export PATH="/home/pi/.local/bin:$PATH" && \
+  export PATH="/root/.local/bin:$PATH" && \
   pip install --no-cache-dir poetry==1.7.1 --extra-index-url https://www.piwheels.org/simple && \
   poetry install --no-root --only main --compile && \
   poetry --no-interaction cache list && \
   poetry --no-interaction cache clear pypi --all && \
   poetry --no-interaction cache clear piwheels --all && \
-  rm -rf /home/pi/.cache/pypoetry/artifacts && \
-  rm -rf /home/pi/.cache/pypoetry/cache && \
+  rm -rf /root/.cache/pypoetry/artifacts && \
+  rm -rf /root/.cache/pypoetry/cache && \
   pip cache purge && \
-  rm -rf /home/pi/.cache/pip
+  rm -rf /root/.cache/pip
 
 # Set up application
 
 COPY main.py .
 COPY planktoscope/ ./planktoscope
-ENTRYPOINT ["/home/pi/.local/bin/poetry", "run", "python", "main.py"]
+ENTRYPOINT ["/root/.local/bin/poetry", "run", "python", "main.py"]
 EXPOSE 8001
 RUN \
   mkdir -p /home/pi/device-backend-logs/processing/segmenter && \
