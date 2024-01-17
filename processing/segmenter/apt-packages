@@ -1,6 +1,7 @@
 # numpy/scipy dependencies
 libopenblas0
 libatlas3-base
+libatomic1
 
 # opencv dependencies
 libhdf5-103-1
