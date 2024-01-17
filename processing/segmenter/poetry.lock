@@ -165,49 +165,6 @@ url = "https://www.piwheels.org/simple"
 reference = "piwheels"
 
 [[package]]
-name = "opencv-contrib-python-headless"
-version = "4.5.5.62"
-description = "Wrapper package for OpenCV python bindings."
-optional = false
-python-versions = ">=3.6"
-files = [
-    {file = "opencv-contrib-python-headless-4.5.5.62.tar.gz", hash = "sha256:6067dea6419cb52c4d4294d8e452fdd7803213382bfb9f0ac02f0738ecb96766"},
-    {file = "opencv_contrib_python_headless-4.5.5.62-cp36-abi3-macosx_10_15_x86_64.whl", hash = "sha256:e1676ced72545a050a8b9e26a07832e091363473b2a7c44735babdc2a5a2a405"},
-    {file = "opencv_contrib_python_headless-4.5.5.62-cp36-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ecd910579d4aac4e4ceb696cbe03324de8f70efd47b5b8d296bd80dc7b930ffd"},
-    {file = "opencv_contrib_python_headless-4.5.5.62-cp36-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:785ef5c11859b95d378062a95ee2a5dc34563eab03e592910588bbe7be6496fa"},
-    {file = "opencv_contrib_python_headless-4.5.5.62-cp36-abi3-win32.whl", hash = "sha256:57f18506d8f2d9c893dee9ef6fc3b1bfcd1cb60ce24a397cbcceda2fdd87be56"},
-    {file = "opencv_contrib_python_headless-4.5.5.62-cp36-abi3-win_amd64.whl", hash = "sha256:da8d1782c99abcc4e121b944e8965fdee21a575c8c275190e06f374deda0ef00"},
-    {file = "opencv_contrib_python_headless-4.5.5.62-cp37-abi3-macosx_11_0_arm64.whl", hash = "sha256:c02eceb8dbc8ee103c3b1468cb5dac33125abd50c0a8ee47fb852f0a25664c7e"},
-]
-
-[package.dependencies]
-numpy = [
-    {version = ">=1.21.2", markers = "python_version >= \"3.9\" and platform_system == \"Darwin\" and platform_machine == \"arm64\""},
-    {version = ">=1.19.3", markers = "python_version >= \"3.8\" and platform_system == \"Linux\" and platform_machine == \"aarch64\" or python_version >= \"3.9\" and platform_system != \"Darwin\" or python_version >= \"3.9\" and platform_machine != \"arm64\""},
-]
-
-[[package]]
-name = "opencv-contrib-python-headless"
-version = "4.5.5.62"
-description = "Wrapper package for OpenCV python bindings."
-optional = false
-python-versions = ">=3.6"
-files = [
-    {file = "opencv_contrib_python_headless-4.5.5.62-cp37-cp37m-linux_armv6l.whl", hash = "sha256:b321480b6bbadaa73286f5cd231e85d08a0a714086910a32a587626552507988"},
-    {file = "opencv_contrib_python_headless-4.5.5.62-cp37-cp37m-linux_armv7l.whl", hash = "sha256:b321480b6bbadaa73286f5cd231e85d08a0a714086910a32a587626552507988"},
-    {file = "opencv_contrib_python_headless-4.5.5.62-cp39-cp39-linux_armv6l.whl", hash = "sha256:69dfcbbb8931f1a7e3ca08449957c90b0d20991861f92ba03869ea35576973bd"},
-    {file = "opencv_contrib_python_headless-4.5.5.62-cp39-cp39-linux_armv7l.whl", hash = "sha256:69dfcbbb8931f1a7e3ca08449957c90b0d20991861f92ba03869ea35576973bd"},
-]
-
-[package.dependencies]
-numpy = {version = ">=1.19.3", markers = "python_version >= \"3.8\" and platform_system == \"Linux\" and platform_machine == \"aarch64\" or python_version >= \"3.9\" and platform_system != \"Darwin\" or python_version >= \"3.9\" and platform_machine != \"arm64\""}
-
-[package.source]
-type = "legacy"
-url = "https://www.piwheels.org/simple"
-reference = "piwheels"
-
-[[package]]
 name = "packaging"
 version = "23.2"
 description = "Core utilities for Python packages"
@@ -721,4 +678,4 @@ dev = ["black (>=19.3b0)", "pytest (>=4.6.2)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "~3.9.2"
-content-hash = "42bee17759439d05cc51ffbfca84cfe2328a24d8d0f6244816b8e694c8aac0ca"
+content-hash = "b5a2f623a317edb4cd25cc53a22c418c02956d38de024b13c9a658d865d41cf4"
