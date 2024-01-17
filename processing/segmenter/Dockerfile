@@ -46,5 +46,3 @@ RUN \
   mkdir -p /home/pi/device-backend-logs/processing/segmenter && \
   echo "Every time the Python backend's segmenter starts, it should create a new file in this directory." >> \
     /home/pi/device-backend-logs/processing/segmenter/README
-VOLUME /home/pi/device-backend-logs/processing/segmenter
-VOLUME /home/pi/data
