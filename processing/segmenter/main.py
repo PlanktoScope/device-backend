@@ -21,7 +21,6 @@ import os
 
 from loguru import logger  # for logging with multiprocessing
 
-import planktoscope.mqtt
 import planktoscope.segmenter
 
 # enqueue=True is necessary so we can log accross modules
