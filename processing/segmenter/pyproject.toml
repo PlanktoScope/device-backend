@@ -47,18 +47,18 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.dependencies]
-python = ">=3.9.2"
+python = "~3.9.2"
 paho-mqtt = [
   { version = "==1.6.1", source = "pypi", markers = "platform_machine != 'armv7l'" },
   { version = "==1.6.1", source = "piwheels", markers = "platform_machine == 'armv7l'" },
 ]
 numpy = [
-  { version = "==1.22.4", source = "pypi", markers = "platform_machine != 'armv7l'" },
-  { version = "==1.22.4", source = "piwheels", markers = "platform_machine == 'armv7l'" },
+  { version = "==1.26.3", source = "pypi", markers = "platform_machine != 'armv7l'" },
+  { version = "==1.26.3", source = "piwheels", markers = "platform_machine == 'armv7l' and python_version<'3.10'" },
 ]
 pandas = [
-  { version = "==1.4.4", source = "pypi", markers = "platform_machine != 'armv7l'" },
-  { version = "==1.4.4", source = "piwheels", markers = "platform_machine == 'armv7l'" },
+  { version = "==2.1.4", source = "pypi", markers = "platform_machine != 'armv7l'" },
+  { version = "==2.1.4", source = "piwheels", markers = "platform_machine == 'armv7l'" },
 ]
 loguru = [
   { version = "==0.5.3", source = "pypi", markers = "platform_machine != 'armv7l'" },
