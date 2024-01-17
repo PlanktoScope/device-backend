@@ -42,4 +42,7 @@ COPY planktoscope/ ./planktoscope
 ENTRYPOINT ["/home/pi/.local/bin/poetry", "run", "python", "main.py"]
 EXPOSE 8001
 VOLUME /home/pi/device-backend-logs/processing/segmenter
+RUN \
+  echo "Every time the Python backend's segmenter starts, it should create a new file in this directory." >> \
+    /home/pi/device-backend-logs/processing/segmenter/README
 VOLUME /home/pi/data
