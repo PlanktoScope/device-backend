@@ -8,6 +8,12 @@ All dates in this file are given in the [UTC time zone](https://en.wikipedia.org
 
 ## Unreleased
 
+### Changed
+
+- (Breaking change) EcoTaxa export archive filenames are now saved as `ecotaxa_{acquisition id}.zip` instead of `ecotaxa_{project id}_{date}_{sample id}.zip`, which was long and redundant and (because many devices have incorrect system times) inappropriate for viewing files in a logically sorted order.
+
+## v2024.0.0-alpha.0 - 2024-02-06
+
 ### Added
 
 - (Segmenter) A Docker container image is now built for the segmenter, for amd64, arm64, and armv7.
