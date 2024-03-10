@@ -2,7 +2,7 @@
 name = "planktoscope-controller"
 # Note: PEP 440 requires pre-releases to be formatted like "2023.7.0b0" rather than
 # "2023.7.0-beta.0", which is different from the Semantic Versioning schema
-version = "2023.9.0b1"
+version = "2024.0.0a0"
 description = "Controller of PlanktoScope hardware"
 # For simplicity, we follow the definition of "Maintainer" from
 # https://opensource.guide/how-to-contribute/#anatomy-of-an-open-source-project , which says:
@@ -35,13 +35,18 @@ classifiers = [
 [[tool.poetry.source]]
 name = "piwheels"
 url = "https://www.piwheels.org/simple/"
+priority = "primary"
+
+[[tool.poetry.source]]
+name = "PyPI"
+priority = "primary"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.dependencies]
-python = "~3.9.2"
+python = ">=3.9.2"
 rpi-gpio = "~0.7.1a4"
 adafruit-blinka = "~8.19.0"
 adafruit-circuitpython-motorkit = "~1.6.3"
@@ -53,4 +58,4 @@ loguru = "~0.5.3"
 picamerax = "~21.9.8"
 smbus2 = "~0.4.1"
 picamera = "~1.13"
-pillow = "~10.0.0"
+pillow = "~10.2.0"

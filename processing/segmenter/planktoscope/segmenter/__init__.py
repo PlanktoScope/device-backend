@@ -42,30 +42,15 @@ import select
 
 # Basic planktoscope libraries
 import planktoscope.identity
-import planktoscope.uuidName
 import planktoscope.mqtt
 import planktoscope.segmenter.operations
 import planktoscope.segmenter.encoder
 import planktoscope.segmenter.streamer
 import planktoscope.segmenter.ecotaxa
 
-
-################################################################################
-# Morphocut Libraries
-################################################################################
-# import morphocut
-# import morphocut.file
-# import morphocut.image
-# import morphocut.stat
-# import morphocut.stream
-# import morphocut.str
-# import morphocut.contrib.zooprocess
-
 ################################################################################
 # Other image processing Libraries
 ################################################################################
-import skimage.util
-import skimage.transform
 import skimage.measure
 import skimage.exposure
 import cv2
@@ -769,15 +754,11 @@ class SegmenterProcess(multiprocessing.Process):
         logger.debug(f"Those are {path_list}")
 
         self.__process_uuid = planktoscope.identity.load_machine_name()
-        self.__deprecated_process_uuid = planktoscope.uuidName.uuidMachine(
-            machine=planktoscope.uuidName.getSerial()
-        )
 
         if self.__process_id == "":
             self.__process_id = self.__process_uuid
 
         logger.info(f"The process_uuid of this run is {self.__process_uuid}")
-        logger.info(f"The deprecated process_uuid is {self.__deprecated_process_uuid}")
         logger.info(f"The process_id of this run is {self.__process_id}")
         exception = None
 
@@ -836,6 +817,7 @@ class SegmenterProcess(multiprocessing.Process):
 
         project = self.__global_metadata["sample_project"].replace(" ", "_")
         sample = self.__global_metadata["sample_id"].replace(" ", "_")
+        acquisition = self.__global_metadata["acq_id"].replace(" ", "_")
         date = datetime.datetime.utcnow().isoformat()
 
         self.__global_metadata["process_datetime"] = date
@@ -876,7 +858,7 @@ class SegmenterProcess(multiprocessing.Process):
         self.__archive_fn = os.path.join(
             self.__ecotaxa_path,
             # filename includes project name, timestamp and sample id
-            f"ecotaxa_{project}_{date}_{sample}.zip",
+            f"ecotaxa_{acquisition}.zip",
         # TODO #102 sanitize the filename to remove potential problems with spaces and special characters
         )
 

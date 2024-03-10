@@ -3,10 +3,51 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project uses [Calendar Versioning](https://calver.org/) with a `YYYY.MM.patch` scheme.
+and this project uses [Calendar Versioning](https://calver.org/) with a `YYYY.minor.patch` scheme.
 All dates in this file are given in the [UTC time zone](https://en.wikipedia.org/wiki/Coordinated_Universal_Time).
 
 ## Unreleased
+
+### Changed
+
+- (Breaking change; segmenter) EcoTaxa export archive filenames are now saved as `ecotaxa_{acquisition id}.zip` instead of `ecotaxa_{project id}_{date}_{sample id}.zip`, which was long and redundant and (because many devices have incorrect system times) inappropriate for viewing files in a logically sorted order.
+
+### Fixed
+
+- (Hardware controller) The pixel calibration values have been switched between the default v2.5 hardware config file and the default v2.6 hardware config file, so that each file has the correct pixel calibration. The default pscopehat hardware config file has also been updated to include the changes made to the default v2.6 hardware config file.
+- (Breaking change; segmenter) The segmenter now runs as `root` (instead of `pi`) in the Docker container for it, so that it doesn't break on various actual & potential edge cases of files/directories being created with `root` ownership (rather than `pi` ownership) before being bind mounted into the container.
+
+## v2024.0.0-alpha.0 - 2024-02-06
+
+### Added
+
+- (Segmenter) A Docker container image is now built for the segmenter, for amd64, arm64, and armv7.
+
+### Changed
+
+- (Breaking change) The machine name is now loaded from `/var/lib/planktoscope/machine-name`, rather than the previous location of `/home/pi/.local/etc/machine-name`.
+
+### Fixed
+
+- (Segmenter) An extraneous `export` directory should no longer be created by the segmenter under `/home/pi/PlanktoScope`. The correct directory is `/home/pi/data/export`.
+
+## v2023.9.0 - 2023-12-29
+
+(this release involves no changes from v2023.9.0-beta.2; it's just a version bump)
+
+## v2023.9.0-beta.2 - 2023-12-02
+
+### Added
+
+- A `hardware.json` file is now provided for the PlanktoScope v2.6 hardware.
+
+### Removed
+
+- Morphocut is no longer required by the segmenter as a Python package dependency.
+
+### Fixed
+
+- The default brightness of the illumination LED for the pscopehat version of the backend (for the custom PlanktoScope HAT) has been reduced; this a temporary workaround to a bug with raspimjpeg where saved images are overexposed even on the default brightness settings with minimum shutter speed and ISO, despite the brightness of raspimjpeg's camera preview looking reasonable (see https://github.com/PlanktoScope/PlanktoScope/issues/259 for details).
 
 ## v2023.9.0-beta.1 - 2023-09-14
 
