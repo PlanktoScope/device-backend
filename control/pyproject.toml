@@ -58,7 +58,7 @@ loguru = "~0.5.3"
 picamerax = "~21.9.8"
 smbus2 = "~0.4.1"
 picamera = "~1.13"
-picamera2 = "~0.3.17"
+picamera2 = "==0.3.10"
 # Note: av is required by picamera2; v10.0.0 is the latest version available on piwheels for bullseye, while v11.0.0 is only for bookworm
 av = "~10.0.0"
 pillow = "~10.2.0"

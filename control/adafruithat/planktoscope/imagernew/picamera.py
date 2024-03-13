@@ -25,13 +25,20 @@ import time
 ################################################################################
 class picamera:
     def __init__(self, output, *args, **kwargs):
-        self.__picam = Picamera2()
+        # Note(ethanjli): if we instantiate Picamera2 here in one process and then call the start
+        # method from a child process, then the start method's call of self.__picam.configure
+        # will block forever because we've basically duplicated the Picamera2 object when we forked
+        # into a child process. So instead we initialize self.__picam to None here, and we'll
+        # properly initialize self.__picam in the start method, which is called by a different
+        # process than the process which calls __init__.
+        self.__picam = None
         self.__controls = {}
         self.__output = output
         self.__sensor_name = ""
 
     # TODO decide which stream to display (main, lores or raw)
     def start(self, force=False):
+        self.__picam = Picamera2()
         logger.debug("Starting up picamera2")
         if force:
             # let's close the camera first
@@ -44,6 +51,12 @@ class picamera:
         half_resolution = [dim // 2 for dim in self.__picam.sensor_resolution]
         main_stream = {"size": half_resolution}
         lores_stream = {"size": (640, 480)}
+        # Note(ethanjli): if we use "lores" as our encode argument, we must use the MJPEGEncoder
+        # instead of JpegEncoder. This is because on the RPi4 the lores stream only outputs as
+        # YUV420, but JpegEncoder only accepts RGB. By contrast, MJPEGEncoder can handle YUV420.
+        # If we do need RGB output for something, we'll have to use the "main" stream instead of the
+        # "lores" stream for that. For details, refer to Table 1 on page 59 of the picamera2 manual
+        # at https://datasheets.raspberrypi.com/camera/picamera2-manual.pdf.
         config = self.__picam.create_video_configuration(main_stream, lores_stream, encode="lores")
         self.__picam.configure(config)
 
@@ -53,8 +66,10 @@ class picamera:
         self.__height = self.__picam.sensor_resolution[1]
 
         # Start recording with video encoding and writing video frames
-        self.__picam.start_preview(Preview.QT)
-        self.__picam.start_recording(JpegEncoder(), FileOutput(self.__output), Quality.HIGH)
+        # Note(ethanjli): see note above about JpegEncoder vs. MJPEGEncoder compatibility with
+        # "lores" streams!
+        #self.__picam.start_recording(JpegEncoder(), FileOutput(self.__output), Quality.HIGH)
+        self.__picam.start_recording(MJPEGEncoder(), FileOutput(self.__output), Quality.HIGH)
 
     @property
     def sensor_name(self):

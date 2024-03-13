@@ -384,16 +384,15 @@ reference = "piwheels"
 
 [[package]]
 name = "picamera2"
-version = "0.3.17"
+version = "0.3.10"
 description = "The libcamera-based Python interface to Raspberry Pi cameras, based on the original Picamera library"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "picamera2-0.3.17-py3-none-any.whl", hash = "sha256:865cdee62758370885efff930812bbd9669ece183f60418b49513ce7f711fe24"},
+    {file = "picamera2-0.3.10-py3-none-any.whl", hash = "sha256:805441c57e23f2c64cfa98f4f2385bbd9ce12d3bfa919aa4ed7fbb1815535eb5"},
 ]
 
 [package.dependencies]
-av = "*"
 numpy = "*"
 PiDNG = "*"
 piexif = "*"
@@ -753,4 +752,4 @@ reference = "piwheels"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9.2"
-content-hash = "6a6d966ddf05cdb5733188e08b7d62e28c35073ef2570744a447449c28b0b44e"
+content-hash = "b8185260af6c10e7319524e9e0586ebf791e06609eb516b6dddbc3f7ae14b621"
