@@ -24,7 +24,14 @@ import time
 # Class for the implementation of Picamera 2
 ################################################################################
 class picamera:
+    """This class contains the main definitions of picamera2 monitoring the PlanktoScope's camera"""
+
     def __init__(self, output, *args, **kwargs):
+        """Initialize the picamera class
+
+        Args:
+            output (picam_streamer.StreamingOutput): receive encoded video frames directly from the encoder and forward them to network sockets
+        """
         # Note(ethanjli): if we instantiate Picamera2 here in one process and then call the start
         # method from a child process, then the start method's call of self.__picam.configure
         # will block forever because we've basically duplicated the Picamera2 object when we forked
@@ -70,6 +77,36 @@ class picamera:
         # "lores" streams!
         #self.__picam.start_recording(JpegEncoder(), FileOutput(self.__output), Quality.HIGH)
         self.__picam.start_recording(MJPEGEncoder(), FileOutput(self.__output), Quality.HIGH)
+
+    #NOTE function drafted as a target of the camera thread (simple version)
+    """def preview_picam(self):
+        try:
+            self.__picam.start()
+        except Exception as e:
+            logger.exception(
+                f"An exception has occured when starting up picamera2: {e}"
+            )
+            try:
+                self.__picam.start(True)
+            except Exception as e:
+                logger.exception(
+                    f"A second exception has occured when starting up picamera2: {e}"
+                )
+                logger.error("This error can't be recovered from, terminating now")
+                raise e
+        try:        
+            while not self.stop_event.is_set():
+                if not self.command_queue.empty():
+                    try:
+                        # Retrieve a command from the queue with a timeout to avoid indefinite blocking
+                        command = self.command_queue.get(timeout=0.1)
+                    except Exception as e:
+                        logger.exception(f"An error has occurred while handling a command: {e}")
+                pass
+                time.sleep(0.01)
+        finally:
+            self.__picam.stop()
+            self.__picam.close()"""
 
     @property
     def sensor_name(self):
@@ -257,12 +294,14 @@ class picamera:
         #metadata = self.__picam.capture_file(path) #use_video_port
         request = self.__picam.capture_request()
         request.save("main", path)
-        request.release()
+
         time.sleep(0.1)
+        request.release()
 
     def stop(self):
         """Release the camera"""
         logger.debug("Releasing the camera now")
+        self.__picam.stop_preview()
         self.__picam.stop_recording()
 
     def close(self):

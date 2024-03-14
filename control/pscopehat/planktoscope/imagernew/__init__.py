@@ -50,12 +50,10 @@ class ImagerProcess(multiprocessing.Process):
             )
             configuration = {}
 
-        self.__camera_type = "v2.1"
+        self.__camera_type = configuration.get("camera_type", "v2.1")
 
-        # parse the config data. If the key is absent, we are using the default value
-        self.__camera_type = configuration.get("camera_type", self.__camera_type)
 
-        #self.command_queue = queue.Queue()
+        self.command_queue = queue.Queue()
         #self.shutdown_event = threading.Event()
         self.stop_event = stop_event
         self.__imager = planktoscope.imagernew.state_machine.Imager()
@@ -66,21 +64,12 @@ class ImagerProcess(multiprocessing.Process):
         self.__pump_direction = "FORWARD"
         self.__img_goal = None
         self.imager_client = None
-        self.streaming_output = planktoscope.imagernew.picam_streamer.StreamingOutput()
         self.__error = 0
 
         # Initialize the camera
+        self.streaming_output = planktoscope.imagernew.picam_streamer.StreamingOutput()
         self.__camera = planktoscope.imagernew.picamera.picamera(self.streaming_output)
-
-        """if self.__camera.sensor_name == "IMX219":  # Camera v2.1
-            self.__resolution = (3280, 2464)
-        elif self.__camera.sensor_name == "IMX477":  # Camera HQ
-            self.__resolution = (4056, 3040)
-        else:
-            self.__resolution = (1280, 1024)
-            logger.error(
-                f"The connected camera {self.__camera.sensor_name} is not recognized, please check your camera"
-            )"""
+        self.__resolution = None # this is set by the start method
 
         #self.__iso = iso
         self.__exposure_time = exposure_time
@@ -99,22 +88,6 @@ class ImagerProcess(multiprocessing.Process):
 
         self.__export_path = ""
         self.__global_metadata = None
-
-        logger.info("Initialising the camera with the default settings")
-        # TODO identify the camera parameters that can be accessed and initialize them
-        self.__camera.exposure_time = self.__exposure_time
-        time.sleep(0.1)
-
-        self.__camera.exposure_mode = self.__exposure_mode
-        time.sleep(0.1)
-        
-        self.__camera.white_balance = self.__white_balance
-        time.sleep(0.1)
-
-        self.__camera.white_balance_gain = self.__white_balance_gain
-        time.sleep(0.1)
-
-        self.__camera.image_gain = self.__image_gain
 
         logger.success("planktoscope.imager is initialised and ready to go!")
 
@@ -591,11 +564,52 @@ class ImagerProcess(multiprocessing.Process):
         logger.info("Starting the camera and streaming server threads")
         try:
             # Initialize the camera thread
-            self.camera_thread = planktoscope.imagernew.picam_threading.PicamThread(self.__camera, self.stop_event)
+            self.camera_thread = planktoscope.imagernew.picam_threading.PicamThread(self.__camera, self.command_queue, self.stop_event)
 
-            #TODO Start the video recording
+            # Note(ethanjli): the camera must be started in the same process as anything which uses
+            # self.streaming_output, such as our StreamingHandler. This is because
+            # self.streaming_output does not synchronize state across independent processes!
+            # TODO(ethanjli): it would be cleaner if we can start the camera and the StreamingServer
+            # separately from the MQTT client; if it's possible, we can figure that out later.
+            # TODO(W7CH): Start the video recording
             self.camera_thread.start()
 
+        except Exception as e:
+            logger.exception(
+                f"An exception has occured when starting up picamera2: {e}"
+            )
+            try:
+                self.__camera.start(True)
+            except Exception as e:
+                logger.exception(
+                    f"A second exception has occured when starting up picamera2: {e}"
+                )
+                logger.error("This error can't be recovered from, terminating now")
+                raise e
+
+        logger.info("Initialising the camera with the default settings...")
+        # TODO identify the camera parameters that can be accessed and initialize them
+        self.__camera.exposure_time = self.__exposure_time
+        time.sleep(0.1)
+        self.__camera.exposure_mode = self.__exposure_mode
+        time.sleep(0.1)
+        self.__camera.white_balance = self.__white_balance
+        time.sleep(0.1)
+        self.__camera.white_balance_gain = self.__white_balance_gain
+        time.sleep(0.1)
+        self.__camera.image_gain = self.__image_gain
+
+        """if self.__camera.sensor_name == "IMX219":  # Camera v2.1
+            self.__resolution = (3280, 2464)
+        elif self.__camera.sensor_name == "IMX477":  # Camera HQ
+            self.__resolution = (4056, 3040)
+        else:
+            self.__resolution = (1280, 1024)
+            logger.error(
+                f"The connected camera {self.__camera.sensor_name} is not recognized, please check your camera"
+            )"""
+
+        try:
             address = ("", 8000)
             fps = 15
             refresh_delay = 1 / fps
