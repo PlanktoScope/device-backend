@@ -61,9 +61,7 @@ class picamera:
         # If we do need RGB output for something, we'll have to use the "main" stream instead of the
         # "lores" stream for that. For details, refer to Table 1 on page 59 of the picamera2 manual
         # at https://datasheets.raspberrypi.com/camera/picamera2-manual.pdf.
-        config = self.__picam.create_video_configuration(
-            main_stream, lores_stream, encode="lores"
-        )
+        config = self.__picam.create_video_configuration(main_stream, lores_stream, encode="lores")
         self.__picam.configure(config)
 
         # Extract camera properties from picamera2 instance
@@ -74,9 +72,7 @@ class picamera:
         # Start recording with video encoding and writing video frames
         # Note(ethanjli): see note above about JpegEncoder vs. MJPEGEncoder compatibility with
         # "lores" streams!
-        self.__picam.start_recording(
-            MJPEGEncoder(), FileOutput(self.__output), Quality.HIGH
-        )
+        self.__picam.start_recording(MJPEGEncoder(), FileOutput(self.__output), Quality.HIGH)
 
     # NOTE function drafted as a target of the camera thread (simple version)
     """def preview_picam(self):
@@ -210,9 +206,7 @@ class picamera:
                     {"AwbEnable": 1, "AwbMode": self.__white_balance}
                 )  # "AwbEnable": 1,
         else:
-            logger.error(
-                f"The camera white balance mode specified ({mode}) is not valid"
-            )
+            logger.error(f"The camera white balance mode specified ({mode}) is not valid")
             raise ValueError
 
     @property
@@ -235,9 +229,7 @@ class picamera:
             with self.__picam.controls as ctrls:
                 ctrls.ColourGains = self.__white_balance_gain
         else:
-            logger.error(
-                f"The camera white balance gain specified ({gain}) is not valid"
-            )
+            logger.error(f"The camera white balance gain specified ({gain}) is not valid")
             raise ValueError
 
     @property
@@ -280,9 +272,7 @@ class picamera:
             self.__image_quality = image_quality
             self.__picam.options["quality"] = self.__image_quality
         else:
-            logger.error(
-                f"The output image quality specified ({image_quality}) is not valid"
-            )
+            logger.error(f"The output image quality specified ({image_quality}) is not valid")
             raise ValueError
 
     # TODO complete (if needed) the setters and getters of resolution & iso

@@ -41,15 +41,11 @@ class PicamThread(threading.Thread):
         try:
             self.__picam.start()
         except Exception as e:
-            logger.exception(
-                f"An exception has occured when starting up picamera2: {e}"
-            )
+            logger.exception(f"An exception has occured when starting up picamera2: {e}")
             try:
                 self.__picam.start(True)
             except Exception as e:
-                logger.exception(
-                    f"A second exception has occured when starting up picamera2: {e}"
-                )
+                logger.exception(f"A second exception has occured when starting up picamera2: {e}")
                 logger.error("This error can't be recovered from, terminating now")
                 raise e
         try:

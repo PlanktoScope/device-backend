@@ -45,9 +45,7 @@ class ImagerProcess(multiprocessing.Process):
                 configuration = json.load(config_file)
                 logger.debug(f"Hardware configuration loaded is {configuration}")
         else:
-            logger.info(
-                "The hardware configuration file doesn't exists, using defaults"
-            )
+            logger.info("The hardware configuration file doesn't exists, using defaults")
             configuration = {}
 
         self.__camera_type = configuration.get("camera_type", "v2.1")
@@ -139,9 +137,7 @@ class ImagerProcess(multiprocessing.Process):
     def __message_update(self, last_message):
         if self.__imager.state.name == "stop":
             if "config" not in last_message:
-                logger.error(
-                    f"The received message has the wrong argument {last_message}"
-                )
+                logger.error(f"The received message has the wrong argument {last_message}")
                 self.imager_client.client.publish(
                     "status/imager", '{"status":"Configuration message error"}'
                 )
@@ -152,9 +148,7 @@ class ImagerProcess(multiprocessing.Process):
             self.__global_metadata = last_message["config"]
 
             # Publish the status "Config updated" to Node-RED via MQTT
-            self.imager_client.client.publish(
-                "status/imager", '{"status":"Config updated"}'
-            )
+            self.imager_client.client.publish("status/imager", '{"status":"Config updated"}')
             logger.info("Configuration has been updated")
         else:
             logger.error("We can't update the configuration while we are imaging.")
@@ -162,138 +156,110 @@ class ImagerProcess(multiprocessing.Process):
             self.imager_client.client.publish("status/imager", '{"status":"Busy"}')
 
     def __message_settings(self, last_message):
-        if self.__imager.state.name == "stop":
-            if "settings" not in last_message:
-                logger.error(
-                    f"The received message has the wrong argument {last_message}"
-                )
-                self.imager_client.client.publish(
-                    "status/imager", '{"status":"Camera settings error"}'
-                )
-                return
-            logger.info("Updating the camera settings now with the received data")
-            # Updating the configuration with the passed parameter in payload["config"]
-            settings = last_message["settings"]
-
-            if "shutter_speed" in settings:
-                self.__exposure_time = settings.get(
-                    "shutter_speed", self.__exposure_time
-                )
-                logger.debug(
-                    f"Updating the camera shutter speed to {self.__exposure_time}"
-                )
-                try:
-                    self.__camera.exposure_time = self.__exposure_time
-                except TimeoutError:
-                    logger.error(
-                        "A timeout has occured when setting the shutter speed, trying again"
-                    )
-                    self.__camera.exposure_time = self.__exposure_time
-                except ValueError:
-                    logger.error("The requested shutter speed is not valid!")
-                    self.imager_client.client.publish(
-                        "status/imager", '{"status":"Error: Shutter speed not valid"}'
-                    )
-                    return
-
-            if "white_balance_gain" in settings:
-                if "red" in settings["white_balance_gain"]:
-                    logger.debug(
-                        "Updating the camera white balance red gain to "
-                        + f"{settings['white_balance_gain']}"
-                    )
-                    self.__white_balance_gain = (
-                        settings["white_balance_gain"].get(
-                            "red", self.__white_balance_gain[0]
-                        ),
-                        self.__white_balance_gain[1],
-                    )
-                if "blue" in settings["white_balance_gain"]:
-                    logger.debug(
-                        "Updating the camera white balance blue gain to "
-                        + f"{settings['white_balance_gain']}"
-                    )
-                    self.__white_balance_gain = (
-                        self.__white_balance_gain[0],
-                        settings["white_balance_gain"].get(
-                            "blue", self.__white_balance_gain[1]
-                        ),
-                    )
-                logger.debug(
-                    f"Updating the camera white balance gain to {self.__white_balance_gain}"
-                )
-                try:
-                    self.__camera.white_balance_gain = self.__white_balance_gain
-                except TimeoutError:
-                    logger.error(
-                        "A timeout has occured when setting the white balance gain, trying again"
-                    )
-                    self.__camera.white_balance_gain = self.__white_balance_gain
-                except ValueError:
-                    logger.error("The requested white balance gain is not valid!")
-                    self.imager_client.client.publish(
-                        "status/imager",
-                        '{"status":"Error: White balance gain not valid"}',
-                    )
-                    return
-
-            if "white_balance" in settings:
-                logger.debug(
-                    f"Updating the camera white balance mode to {settings['white_balance']}"
-                )
-                self.__white_balance = settings.get(
-                    "white_balance", self.__white_balance
-                )
-                logger.debug(
-                    f"Updating the camera white balance mode to {self.__white_balance}"
-                )
-                try:
-                    self.__camera.white_balance = self.__white_balance
-                except TimeoutError:
-                    logger.error(
-                        "A timeout has occured when setting the white balance, trying again"
-                    )
-                    self.__camera.white_balance = self.__white_balance
-                except ValueError:
-                    logger.error("The requested white balance is not valid!")
-                    self.imager_client.client.publish(
-                        "status/imager",
-                        f'{"status":"Error: Invalid white balance mode {self.__white_balance}"}',
-                    )
-                    return
-
-            if "image_gain" in settings:
-                if "analog" in settings["image_gain"]:
-                    logger.debug(
-                        f"Updating the camera image analog gain to {settings['image_gain']}"
-                    )
-                    self.__image_gain = settings["image_gain"].get(
-                        "analog", self.__image_gain
-                    )
-                logger.debug(f"Updating the camera image gain to {self.__image_gain}")
-                try:
-                    self.__camera.image_gain = self.__image_gain
-                except TimeoutError:
-                    logger.error(
-                        "A timeout has occured when setting the white balance gain, trying again"
-                    )
-                    self.__camera.image_gain = self.__image_gain
-                except ValueError:
-                    logger.error("The requested image gain is not valid!")
-                    self.imager_client.client.publish(
-                        "status/imager",
-                        '{"status":"Error: Image gain not valid"}',
-                    )
-                    return
-            # Publish the status "Config updated" to via MQTT to Node-RED
-            self.imager_client.client.publish(
-                "status/imager", '{"status":"Camera settings updated"}'
-            )
-            logger.info("Camera settings have been updated")
-        else:
+        if self.__imager.state.name != "stop":
             logger.error("We can't update the camera settings while we are imaging.")
             # Publish the status "Interrupted" to via MQTT to Node-RED
             self.imager_client.client.publish("status/imager", '{"status":"Busy"}')
+            return
+
+        if "settings" not in last_message:
+            logger.error(f"The received message has the wrong argument {last_message}")
+            self.imager_client.client.publish("status/imager", '{"status":"Camera settings error"}')
+            return
+
+        logger.info("Updating the camera settings now with the received data")
+        # Updating the configuration with the passed parameter in payload["config"]
+        settings = last_message["settings"]
+
+        if "shutter_speed" in settings:
+            self.__exposure_time = settings.get("shutter_speed", self.__exposure_time)
+            logger.debug(f"Updating the camera shutter speed to {self.__exposure_time}")
+            try:
+                self.__camera.exposure_time = self.__exposure_time
+            except TimeoutError:
+                logger.error("A timeout has occured when setting the shutter speed, trying again")
+                self.__camera.exposure_time = self.__exposure_time
+            except ValueError:
+                logger.error("The requested shutter speed is not valid!")
+                self.imager_client.client.publish(
+                    "status/imager", '{"status":"Error: Shutter speed not valid"}'
+                )
+                return
+
+        if "white_balance_gain" in settings:
+            if "red" in settings["white_balance_gain"]:
+                logger.debug(
+                    "Updating the camera white balance red gain to "
+                    + f"{settings['white_balance_gain']}"
+                )
+                self.__white_balance_gain = (
+                    settings["white_balance_gain"].get("red", self.__white_balance_gain[0]),
+                    self.__white_balance_gain[1],
+                )
+            if "blue" in settings["white_balance_gain"]:
+                logger.debug(
+                    "Updating the camera white balance blue gain to "
+                    + f"{settings['white_balance_gain']}"
+                )
+                self.__white_balance_gain = (
+                    self.__white_balance_gain[0],
+                    settings["white_balance_gain"].get("blue", self.__white_balance_gain[1]),
+                )
+            logger.debug(f"Updating the camera white balance gain to {self.__white_balance_gain}")
+            try:
+                self.__camera.white_balance_gain = self.__white_balance_gain
+            except TimeoutError:
+                logger.error(
+                    "A timeout has occured when setting the white balance gain, trying again"
+                )
+                self.__camera.white_balance_gain = self.__white_balance_gain
+            except ValueError:
+                logger.error("The requested white balance gain is not valid!")
+                self.imager_client.client.publish(
+                    "status/imager",
+                    '{"status":"Error: White balance gain not valid"}',
+                )
+                return
+
+        if "white_balance" in settings:
+            logger.debug(f"Updating the camera white balance mode to {settings['white_balance']}")
+            self.__white_balance = settings.get("white_balance", self.__white_balance)
+            logger.debug(f"Updating the camera white balance mode to {self.__white_balance}")
+            try:
+                self.__camera.white_balance = self.__white_balance
+            except TimeoutError:
+                logger.error("A timeout has occured when setting the white balance, trying again")
+                self.__camera.white_balance = self.__white_balance
+            except ValueError:
+                logger.error("The requested white balance is not valid!")
+                self.imager_client.client.publish(
+                    "status/imager",
+                    f'{"status":"Error: Invalid white balance mode {self.__white_balance}"}',
+                )
+                return
+
+        if "image_gain" in settings:
+            if "analog" in settings["image_gain"]:
+                logger.debug(f"Updating the camera image analog gain to {settings['image_gain']}")
+                self.__image_gain = settings["image_gain"].get("analog", self.__image_gain)
+            logger.debug(f"Updating the camera image gain to {self.__image_gain}")
+            try:
+                self.__camera.image_gain = self.__image_gain
+            except TimeoutError:
+                logger.error(
+                    "A timeout has occured when setting the white balance gain, trying again"
+                )
+                self.__camera.image_gain = self.__image_gain
+            except ValueError:
+                logger.error("The requested image gain is not valid!")
+                self.imager_client.client.publish(
+                    "status/imager",
+                    '{"status":"Error: Image gain not valid"}',
+                )
+                return
+        # Publish the status "Config updated" to via MQTT to Node-RED
+        self.imager_client.client.publish("status/imager", '{"status":"Camera settings updated"}')
+        logger.info("Camera settings have been updated")
 
     # copied #
     @logger.catch
@@ -306,21 +272,15 @@ class ImagerProcess(multiprocessing.Process):
             action = self.imager_client.msg["payload"]["action"]
             logger.debug(action)
         elif self.imager_client.msg["topic"] == "status/pump":
-            logger.debug(
-                f"Status message payload is {self.imager_client.msg['payload']}"
-            )
+            logger.debug(f"Status message payload is {self.imager_client.msg['payload']}")
             if self.__imager.state.name == "waiting":
                 if self.imager_client.msg["payload"]["status"] == "Done":
                     self.__imager.change(planktoscope.imagernew.state_machine.Capture)
                     self.imager_client.client.unsubscribe("status/pump")
                 else:
-                    logger.info(
-                        f"The pump is not done yet {self.imager_client.msg['payload']}"
-                    )
+                    logger.info(f"The pump is not done yet {self.imager_client.msg['payload']}")
             else:
-                logger.error(
-                    "There is an error, we received an unexpected pump message"
-                )
+                logger.error("There is an error, we received an unexpected pump message")
         else:
             logger.error(
                 f"The received message was not for us! Topic was {self.imager_client.msg['topic']}"
@@ -342,9 +302,7 @@ class ImagerProcess(multiprocessing.Process):
             self.__message_settings(last_message)
 
         elif action not in ["image", "stop", "update_config", "settings", ""]:
-            logger.warning(
-                f"We did not understand the received request {action} - {last_message}"
-            )
+            logger.warning(f"We did not understand the received request {action} - {last_message}")
 
     # copied #
     def __pump_message(self):
@@ -419,9 +377,7 @@ class ImagerProcess(multiprocessing.Process):
         metadata_filepath = os.path.join(self.__export_path, "metadata.json")
         with open(metadata_filepath, "w") as metadata_file:
             json.dump(self.__global_metadata, metadata_file, indent=4)
-            logger.debug(
-                f"Metadata dumped in {metadata_file} are {self.__global_metadata}"
-            )
+            logger.debug(f"Metadata dumped in {metadata_file} are {self.__global_metadata}")
 
         # Create the integrity file in this export path
         try:
@@ -448,9 +404,7 @@ class ImagerProcess(multiprocessing.Process):
         # Define the filename of the image
         filename_path = os.path.join(self.__export_path, filename)
 
-        logger.info(
-            f"Capturing image {self.__img_done + 1}/{self.__img_goal} to {filename_path}"
-        )
+        logger.info(f"Capturing image {self.__img_done + 1}/{self.__img_goal} to {filename_path}")
 
         # Sleep a duration before to start acquisition
         time.sleep(self.__sleep_before)
@@ -541,28 +495,18 @@ class ImagerProcess(multiprocessing.Process):
     @logger.catch
     def run(self):
         """This is the function that needs to be started to create a thread"""
-        logger.info(
-            f"The imager control thread has been started in process {os.getpid()}"
-        )
+        logger.info(f"The imager control thread has been started in process {os.getpid()}")
         # MQTT Service connection
-        self.imager_client = planktoscope.mqtt.MQTT_Client(
-            topic="imager/#", name="imager_client"
-        )
+        self.imager_client = planktoscope.mqtt.MQTT_Client(topic="imager/#", name="imager_client")
 
         self.imager_client.client.publish("status/imager", '{"status":"Starting up"}')
 
         if self.__camera.sensor_name == "IMX219":  # Camera v2.1
-            self.imager_client.client.publish(
-                "status/imager", '{"camera_name":"Camera v2.1"}'
-            )
+            self.imager_client.client.publish("status/imager", '{"camera_name":"Camera v2.1"}')
         elif self.__camera.sensor_name == "IMX477":  # Camera HQ
-            self.imager_client.client.publish(
-                "status/imager", '{"camera_name":"HQ Camera"}'
-            )
+            self.imager_client.client.publish("status/imager", '{"camera_name":"HQ Camera"}')
         else:
-            self.imager_client.client.publish(
-                "status/imager", '{"camera_name":"Not recognized"}'
-            )
+            self.imager_client.client.publish("status/imager", '{"camera_name":"Not recognized"}')
 
         logger.info("Starting the camera and streaming server threads")
         try:
@@ -580,15 +524,11 @@ class ImagerProcess(multiprocessing.Process):
             self.camera_thread.start()
 
         except Exception as e:
-            logger.exception(
-                f"An exception has occured when starting up picamera2: {e}"
-            )
+            logger.exception(f"An exception has occured when starting up picamera2: {e}")
             try:
                 self.__camera.start(True)
             except Exception as e:
-                logger.exception(
-                    f"A second exception has occured when starting up picamera2: {e}"
-                )
+                logger.exception(f"A second exception has occured when starting up picamera2: {e}")
                 logger.error("This error can't be recovered from, terminating now")
                 raise e
 
@@ -624,12 +564,8 @@ class ImagerProcess(multiprocessing.Process):
                 refresh_delay,
                 self.streaming_output,
             )
-            server = planktoscope.imagernew.picam_streamer.StreamingServer(
-                address, handler
-            )
-            self.streaming_thread = threading.Thread(
-                target=server.serve_forever, daemon=True
-            )
+            server = planktoscope.imagernew.picam_streamer.StreamingServer(address, handler)
+            self.streaming_thread = threading.Thread(target=server.serve_forever, daemon=True)
             self.streaming_thread.start()
 
             # Publish the status "Ready" to Node-RED via MQTT
