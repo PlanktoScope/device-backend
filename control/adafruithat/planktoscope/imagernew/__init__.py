@@ -1,12 +1,12 @@
-import datetime # needed to get date and time for folder name and filename
-import time # needed to able to sleep for a given duration
+import datetime  # needed to get date and time for folder name and filename
+import time  # needed to able to sleep for a given duration
 import json
 import os
 import shutil
 import multiprocessing
-import threading # needed for the streaming server
-import functools # needed for the streaming server
-import queue # needed to create a queue for commands coming to the camera
+import threading  # needed for the streaming server
+import functools  # needed for the streaming server
+import queue  # needed to create a queue for commands coming to the camera
 
 from loguru import logger
 
@@ -20,6 +20,7 @@ import planktoscope.identity
 
 
 logger.info("planktoscope.imager is loaded")
+
 
 ################################################################################
 # Main Imager class
@@ -52,9 +53,8 @@ class ImagerProcess(multiprocessing.Process):
 
         self.__camera_type = configuration.get("camera_type", "v2.1")
 
-
         self.command_queue = queue.Queue()
-        #self.shutdown_event = threading.Event()
+        # self.shutdown_event = threading.Event()
         self.stop_event = stop_event
         self.__imager = planktoscope.imagernew.state_machine.Imager()
         self.__img_goal = 0
@@ -69,15 +69,15 @@ class ImagerProcess(multiprocessing.Process):
         # Initialize the camera
         self.streaming_output = planktoscope.imagernew.picam_streamer.StreamingOutput()
         self.__camera = planktoscope.imagernew.picamera.picamera(self.streaming_output)
-        self.__resolution = None # this is set by the start method
+        self.__resolution = None  # this is set by the start method
 
-        #self.__iso = iso
+        # self.__iso = iso
         self.__exposure_time = exposure_time
-        self.__exposure_mode = "normal" #"auto"
+        self.__exposure_mode = "normal"  # "auto"
         self.__white_balance = "off"
         self.__white_balance_gain = (
             configuration.get("red_gain", 2.00),
-            configuration.get("blue_gain", 1.40)
+            configuration.get("blue_gain", 1.40),
         )
         self.__image_gain = configuration.get("analog_gain", 1.00)
 
@@ -266,8 +266,8 @@ class ImagerProcess(multiprocessing.Process):
                     logger.debug(
                         f"Updating the camera image analog gain to {settings['image_gain']}"
                     )
-                    self.__image_gain = (
-                        settings["image_gain"].get("analog", self.__image_gain)
+                    self.__image_gain = settings["image_gain"].get(
+                        "analog", self.__image_gain
                     )
                 logger.debug(f"Updating the camera image gain to {self.__image_gain}")
                 try:
@@ -564,7 +564,9 @@ class ImagerProcess(multiprocessing.Process):
         logger.info("Starting the camera and streaming server threads")
         try:
             # Initialize the camera thread
-            self.camera_thread = planktoscope.imagernew.picam_threading.PicamThread(self.__camera, self.command_queue, self.stop_event)
+            self.camera_thread = planktoscope.imagernew.picam_threading.PicamThread(
+                self.__camera, self.command_queue, self.stop_event
+            )
 
             # Note(ethanjli): the camera must be started in the same process as anything which uses
             # self.streaming_output, such as our StreamingHandler. This is because
@@ -614,9 +616,13 @@ class ImagerProcess(multiprocessing.Process):
             fps = 15
             refresh_delay = 1 / fps
             handler = functools.partial(
-                planktoscope.imagernew.picam_streamer.StreamingHandler, refresh_delay, self.streaming_output
+                planktoscope.imagernew.picam_streamer.StreamingHandler,
+                refresh_delay,
+                self.streaming_output,
             )
-            server = planktoscope.imagernew.picam_streamer.StreamingServer(address, handler)
+            server = planktoscope.imagernew.picam_streamer.StreamingServer(
+                address, handler
+            )
             self.streaming_thread = threading.Thread(
                 target=server.serve_forever, daemon=True
             )
@@ -628,7 +634,7 @@ class ImagerProcess(multiprocessing.Process):
             logger.success("Camera is READY!")
 
             ################### Move to the state of getting ready to start instead of stop by default
-            #self.__imager.change(planktoscope.imagernew.state_machine.Imaging)
+            # self.__imager.change(planktoscope.imagernew.state_machine.Imaging)
 
             ################### While loop for capturing commands from Node-RED (later! the display is prior)
             while not self.stop_event.is_set():
@@ -636,17 +642,17 @@ class ImagerProcess(multiprocessing.Process):
                     self.treat_message()
                 self.state_machine()
                 # Do nothing instead of message reception and treatment
-                #pass
+                # pass
                 time.sleep(0.1)
-                
+
         finally:
             logger.info("Shutting down the imager process")
             self.imager_client.client.publish("status/imager", '{"status":"Dead"}')
-            #NOTE the resource release task of the camera is handled within the thread
-            #logger.debug("Stopping picamera and its thread")
-            #self.shutdown_event.set()
-            #self.__camera.stop()
-            #self.__camera.close()
+            # NOTE the resource release task of the camera is handled within the thread
+            # logger.debug("Stopping picamera and its thread")
+            # self.shutdown_event.set()
+            # self.__camera.stop()
+            # self.__camera.close()
             logger.debug("Stopping the streaming thread")
             server.shutdown()
             logger.debug("Stopping MQTT")

@@ -13,9 +13,11 @@ streaming_output = stream.StreamingOutput()
 picam2.start_recording(MJPEGEncoder(), FileOutput(streaming_output))
 
 try:
-    address = ('', 8000)
+    address = ("", 8000)
     refresh_delay = 1 / 15
-    handler = functools.partial(stream.StreamingHandler, refresh_delay, streaming_output)
+    handler = functools.partial(
+        stream.StreamingHandler, refresh_delay, streaming_output
+    )
     server = stream.StreamingServer(address, handler)
     server.serve_forever()
 finally:

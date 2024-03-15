@@ -32,33 +32,59 @@ classifiers = [
   "Topic :: Scientific/Engineering",
 ]
 
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[[tool.poetry.source]]
+name = "pypi"
+priority = "supplemental"
+
 [[tool.poetry.source]]
 name = "piwheels"
 url = "https://www.piwheels.org/simple/"
 priority = "primary"
 
-[[tool.poetry.source]]
-name = "PyPI"
-priority = "primary"
+[tool.poetry.group.dev.dependencies]
+black = "^24.2.0"
+poethepoet = "^0.25.0"
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.poetry.dependencies]
-python = ">=3.9.2"
+[tool.poetry.group.hw.dependencies]
 rpi-gpio = "~0.7.1a4"
 adafruit-blinka = "~8.19.0"
 adafruit-circuitpython-motorkit = "~1.6.3"
 adafruit-circuitpython-motor = "~3.3.1"
 adafruit-ssd1306 = "~1.6.2"
 adafruit-platformdetect = "~3.45.2"
-paho-mqtt = "~1.6.1"
-loguru = "~0.5.3"
 picamerax = "~21.9.8"
 smbus2 = "~0.4.1"
 picamera = "~1.13"
 picamera2 = "==0.3.10"
 # Note: av is required by picamera2; v10.0.0 is the latest version available on piwheels for bullseye, while v11.0.0 is only for bookworm
 av = "~10.0.0"
-pillow = "~10.2.0"
+
+[tool.poetry.dependencies]
+python = ">=3.9.2"
+paho-mqtt = [
+  { version = "==1.6.1", source = "pypi", markers = "platform_machine != 'armv7l'" },
+  { version = "==1.6.1", source = "piwheels", markers = "platform_machine == 'armv7l'" },
+]
+loguru = [
+  { version = "==0.5.3", source = "pypi", markers = "platform_machine != 'armv7l'" },
+  { version = "==0.5.3", source = "piwheels", markers = "platform_machine == 'armv7l'" },
+]
+
+[tool.black]
+include = '''
+# We are gradually introducing autoformatting as we rewrite each module. For now, we will only
+# autoformat the new imager module:
+(
+    adafruithat\/planktoscope\/imagernew\/.*\.pyi?$
+  | pscopehat\/planktoscope\/imagernew\/.*\.pyi?$
+)
+'''
+
+[tool.poe.tasks]
+fmt = "black ."
+check-fmt = "black --diff --color ."
+check = ["check-fmt"]

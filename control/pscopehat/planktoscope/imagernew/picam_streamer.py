@@ -7,6 +7,7 @@ import socketserver
 import http.server
 from threading import Condition
 
+
 ################################################################################
 # Classes for the PiCamera Streaming
 ################################################################################
@@ -19,6 +20,7 @@ class StreamingOutput(io.BufferedIOBase):
         with self.condition:
             self.frame = buf
             self.condition.notify_all()
+
 
 class StreamingHandler(http.server.BaseHTTPRequestHandler):
     def __init__(self, delay, output, *args, **kwargs):
@@ -40,7 +42,7 @@ class StreamingHandler(http.server.BaseHTTPRequestHandler):
             self.send_header(
                 "Content-Type", "multipart/x-mixed-replace; boundary=FRAME"
             )
-            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             try:
                 while True:
@@ -60,7 +62,9 @@ class StreamingHandler(http.server.BaseHTTPRequestHandler):
                         time.sleep(self.delay)
 
             except Exception as e:
-                logger.info(f"Removed streaming client {self.client_address}") #FIXME client_address is not defined, remove it?
+                logger.info(
+                    f"Removed streaming client {self.client_address}"
+                )  # FIXME client_address is not defined, remove it?
         else:
             self.send_error(404)
             self.end_headers()

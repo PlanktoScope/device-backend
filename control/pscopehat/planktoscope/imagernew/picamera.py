@@ -2,7 +2,7 @@
 # Practical Libraries
 ################################################################################
 
-# Libraries to manage the camera 
+# Libraries to manage the camera
 from picamera2 import Picamera2, Preview
 from libcamera import controls
 from picamera2.encoders import JpegEncoder, MJPEGEncoder, Quality
@@ -18,7 +18,8 @@ import os
 import datetime
 import time
 
-#import json
+# import json
+
 
 ################################################################################
 # Class for the implementation of Picamera 2
@@ -64,7 +65,9 @@ class picamera:
         # If we do need RGB output for something, we'll have to use the "main" stream instead of the
         # "lores" stream for that. For details, refer to Table 1 on page 59 of the picamera2 manual
         # at https://datasheets.raspberrypi.com/camera/picamera2-manual.pdf.
-        config = self.__picam.create_video_configuration(main_stream, lores_stream, encode="lores")
+        config = self.__picam.create_video_configuration(
+            main_stream, lores_stream, encode="lores"
+        )
         self.__picam.configure(config)
 
         # Extract camera properties from picamera2 instance
@@ -75,10 +78,12 @@ class picamera:
         # Start recording with video encoding and writing video frames
         # Note(ethanjli): see note above about JpegEncoder vs. MJPEGEncoder compatibility with
         # "lores" streams!
-        #self.__picam.start_recording(JpegEncoder(), FileOutput(self.__output), Quality.HIGH)
-        self.__picam.start_recording(MJPEGEncoder(), FileOutput(self.__output), Quality.HIGH)
+        # self.__picam.start_recording(JpegEncoder(), FileOutput(self.__output), Quality.HIGH)
+        self.__picam.start_recording(
+            MJPEGEncoder(), FileOutput(self.__output), Quality.HIGH
+        )
 
-    #NOTE function drafted as a target of the camera thread (simple version)
+    # NOTE function drafted as a target of the camera thread (simple version)
     """def preview_picam(self):
         try:
             self.__picam.start()
@@ -124,14 +129,14 @@ class picamera:
     @property
     def height(self):
         return self.__height
-    
+
     @property
     def exposure_time(self):
         return self.__exposure_time
 
     @exposure_time.setter
     def exposure_time(self, exposure_time):
-        """Change the camera sensor exposure time (shutter speed) in microseconds 
+        """Change the camera sensor exposure time (shutter speed) in microseconds
         between 0 and 66666 (according to "camera_controls" property).
 
         Args:
@@ -164,14 +169,16 @@ class picamera:
             "off": False,
             "normal": controls.AeExposureModeEnum.Normal,
             "short": controls.AeExposureModeEnum.Short,
-            "long": controls.AeExposureModeEnum.Long
+            "long": controls.AeExposureModeEnum.Long,
         }
         if mode in modes:
             self.__exposure_mode = modes[mode]
             if mode == "off":
                 self.__picam.set_controls({"AeEnable": self.__exposure_mode})
             else:
-                self.__picam.set_controls({"AeEnable": 1, "AeExposureMode": self.__exposure_mode}) #"AeEnable": 1,
+                self.__picam.set_controls(
+                    {"AeEnable": 1, "AeExposureMode": self.__exposure_mode}
+                )  # "AeEnable": 1,
         else:
             logger.error(f"The exposure mode specified ({mode}) is not valid")
             raise ValueError
@@ -184,7 +191,7 @@ class picamera:
     def white_balance(self, mode):
         """Change the camera white balance mode
 
-        Is one of off, auto, tungsten, fluorescent, 
+        Is one of off, auto, tungsten, fluorescent,
         indoor, daylight, cloudy
 
         Args:
@@ -198,20 +205,22 @@ class picamera:
             "fluorescent": controls.AwbModeEnum.Fluorescent,
             "indoor": controls.AwbModeEnum.Indoor,
             "daylight": controls.AwbModeEnum.Daylight,
-            "cloudy": controls.AwbModeEnum.Cloudy
+            "cloudy": controls.AwbModeEnum.Cloudy,
         }
         if mode in modes:
             self.__white_balance = modes[mode]
             if mode == "off":
                 self.__picam.set_controls({"AwbEnable": self.__white_balance})
             else:
-                self.__picam.set_controls({"AwbEnable": 1, "AwbMode": self.__white_balance}) #"AwbEnable": 1,
+                self.__picam.set_controls(
+                    {"AwbEnable": 1, "AwbMode": self.__white_balance}
+                )  # "AwbEnable": 1,
         else:
             logger.error(
                 f"The camera white balance mode specified ({mode}) is not valid"
             )
             raise ValueError
-        
+
     @property
     def white_balance_gain(self):
         return self.__white_balance_gain
@@ -235,7 +244,7 @@ class picamera:
                 f"The camera white balance gain specified ({gain}) is not valid"
             )
             raise ValueError
-        
+
     @property
     def image_gain(self):
         return self.__image_gain
@@ -251,10 +260,10 @@ class picamera:
             gain (float): Image gain to use
         """
         logger.debug(f"Setting the analogue gain to {gain}")
-        if (1.0 <= gain <= 16.0):
+        if 1.0 <= gain <= 16.0:
             self.__image_gain = gain
             with self.__picam.controls as ctrls:
-                ctrls.AnalogueGain = self.__image_gain #DigitalGain
+                ctrls.AnalogueGain = self.__image_gain  # DigitalGain
         else:
             logger.error(f"The camera image gain specified ({gain}) is not valid")
             raise ValueError
@@ -281,7 +290,6 @@ class picamera:
             raise ValueError
 
     # TODO complete (if needed) the setters and getters of resolution & iso
-    
 
     # TODO capture images in full/high resolution "while the server is serving indefinitely"
     def capture(self, path=""):
@@ -291,7 +299,7 @@ class picamera:
             path (str, optional): Path to image file. Defaults to "".
         """
         logger.debug(f"Capturing an image to {path}")
-        #metadata = self.__picam.capture_file(path) #use_video_port
+        # metadata = self.__picam.capture_file(path) #use_video_port
         request = self.__picam.capture_request()
         request.save("main", path)
 
