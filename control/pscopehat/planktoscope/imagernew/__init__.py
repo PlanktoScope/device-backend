@@ -171,95 +171,106 @@ class ImagerProcess(multiprocessing.Process):
         # Updating the configuration with the passed parameter in payload["config"]
         settings = last_message["settings"]
 
-        if "shutter_speed" in settings:
-            self.__exposure_time = settings.get("shutter_speed", self.__exposure_time)
-            logger.debug(f"Updating the camera shutter speed to {self.__exposure_time}")
-            try:
-                self.__camera.exposure_time = self.__exposure_time
-            except TimeoutError:
-                logger.error("A timeout has occured when setting the shutter speed, trying again")
-                self.__camera.exposure_time = self.__exposure_time
-            except ValueError:
-                logger.error("The requested shutter speed is not valid!")
-                self.imager_client.client.publish(
-                    "status/imager", '{"status":"Error: Shutter speed not valid"}'
-                )
-                return
+        try:
+            if "shutter_speed" in settings:
+                self.__message_settings_ss(settings)
+            if "white_balance_gain" in settings:
+                self.__message_settings_wb_gain(settings)
+            if "white_balance" in settings:
+                self.__message_settings_wb(settings)
+            if "image_gain" in settings:
+                self.__message_settings_image_gain(settings)
+        except ValueError:
+            # the methods above already returned an error response if an error occurred, in which
+            # case we don't want to send a success response
+            return
 
-        if "white_balance_gain" in settings:
-            if "red" in settings["white_balance_gain"]:
-                logger.debug(
-                    "Updating the camera white balance red gain to "
-                    + f"{settings['white_balance_gain']}"
-                )
-                self.__white_balance_gain = (
-                    settings["white_balance_gain"].get("red", self.__white_balance_gain[0]),
-                    self.__white_balance_gain[1],
-                )
-            if "blue" in settings["white_balance_gain"]:
-                logger.debug(
-                    "Updating the camera white balance blue gain to "
-                    + f"{settings['white_balance_gain']}"
-                )
-                self.__white_balance_gain = (
-                    self.__white_balance_gain[0],
-                    settings["white_balance_gain"].get("blue", self.__white_balance_gain[1]),
-                )
-            logger.debug(f"Updating the camera white balance gain to {self.__white_balance_gain}")
-            try:
-                self.__camera.white_balance_gain = self.__white_balance_gain
-            except TimeoutError:
-                logger.error(
-                    "A timeout has occured when setting the white balance gain, trying again"
-                )
-                self.__camera.white_balance_gain = self.__white_balance_gain
-            except ValueError:
-                logger.error("The requested white balance gain is not valid!")
-                self.imager_client.client.publish(
-                    "status/imager",
-                    '{"status":"Error: White balance gain not valid"}',
-                )
-                return
-
-        if "white_balance" in settings:
-            logger.debug(f"Updating the camera white balance mode to {settings['white_balance']}")
-            self.__white_balance = settings.get("white_balance", self.__white_balance)
-            logger.debug(f"Updating the camera white balance mode to {self.__white_balance}")
-            try:
-                self.__camera.white_balance = self.__white_balance
-            except TimeoutError:
-                logger.error("A timeout has occured when setting the white balance, trying again")
-                self.__camera.white_balance = self.__white_balance
-            except ValueError:
-                logger.error("The requested white balance is not valid!")
-                self.imager_client.client.publish(
-                    "status/imager",
-                    f'{"status":"Error: Invalid white balance mode {self.__white_balance}"}',
-                )
-                return
-
-        if "image_gain" in settings:
-            if "analog" in settings["image_gain"]:
-                logger.debug(f"Updating the camera image analog gain to {settings['image_gain']}")
-                self.__image_gain = settings["image_gain"].get("analog", self.__image_gain)
-            logger.debug(f"Updating the camera image gain to {self.__image_gain}")
-            try:
-                self.__camera.image_gain = self.__image_gain
-            except TimeoutError:
-                logger.error(
-                    "A timeout has occured when setting the white balance gain, trying again"
-                )
-                self.__camera.image_gain = self.__image_gain
-            except ValueError:
-                logger.error("The requested image gain is not valid!")
-                self.imager_client.client.publish(
-                    "status/imager",
-                    '{"status":"Error: Image gain not valid"}',
-                )
-                return
         # Publish the status "Config updated" to via MQTT to Node-RED
         self.imager_client.client.publish("status/imager", '{"status":"Camera settings updated"}')
         logger.info("Camera settings have been updated")
+
+    def __message_settings_ss(self, settings):
+        self.__exposure_time = settings.get("shutter_speed", self.__exposure_time)
+        logger.debug(f"Updating the camera shutter speed to {self.__exposure_time}")
+        try:
+            self.__camera.exposure_time = self.__exposure_time
+        except TimeoutError:
+            logger.error("A timeout has occured when setting the shutter speed, trying again")
+            self.__camera.exposure_time = self.__exposure_time
+        except ValueError as e:
+            logger.error("The requested shutter speed is not valid!")
+            self.imager_client.client.publish(
+                "status/imager", '{"status":"Error: Shutter speed not valid"}'
+            )
+            raise e
+
+    def __message_settings_wb_gain(self, settings):
+        if "red" in settings["white_balance_gain"]:
+            logger.debug(
+                "Updating the camera white balance red gain to "
+                + f"{settings['white_balance_gain']}"
+            )
+            self.__white_balance_gain = (
+                settings["white_balance_gain"].get("red", self.__white_balance_gain[0]),
+                self.__white_balance_gain[1],
+            )
+        if "blue" in settings["white_balance_gain"]:
+            logger.debug(
+                "Updating the camera white balance blue gain to "
+                + f"{settings['white_balance_gain']}"
+            )
+            self.__white_balance_gain = (
+                self.__white_balance_gain[0],
+                settings["white_balance_gain"].get("blue", self.__white_balance_gain[1]),
+            )
+        logger.debug(f"Updating the camera white balance gain to {self.__white_balance_gain}")
+        try:
+            self.__camera.white_balance_gain = self.__white_balance_gain
+        except TimeoutError:
+            logger.error("A timeout has occured when setting the white balance gain, trying again")
+            self.__camera.white_balance_gain = self.__white_balance_gain
+        except ValueError as e:
+            logger.error("The requested white balance gain is not valid!")
+            self.imager_client.client.publish(
+                "status/imager",
+                '{"status":"Error: White balance gain not valid"}',
+            )
+            raise e
+
+    def __message_settings_wb(self, settings):
+        logger.debug(f"Updating the camera white balance mode to {settings['white_balance']}")
+        self.__white_balance = settings.get("white_balance", self.__white_balance)
+        logger.debug(f"Updating the camera white balance mode to {self.__white_balance}")
+        try:
+            self.__camera.white_balance = self.__white_balance
+        except TimeoutError:
+            logger.error("A timeout has occured when setting the white balance, trying again")
+            self.__camera.white_balance = self.__white_balance
+        except ValueError as e:
+            logger.error("The requested white balance is not valid!")
+            self.imager_client.client.publish(
+                "status/imager",
+                f'{"status":"Error: Invalid white balance mode {self.__white_balance}"}',
+            )
+            raise e
+
+    def __message_settings_image_gain(self, settings):
+        if "analog" in settings["image_gain"]:
+            logger.debug(f"Updating the camera image analog gain to {settings['image_gain']}")
+            self.__image_gain = settings["image_gain"].get("analog", self.__image_gain)
+        logger.debug(f"Updating the camera image gain to {self.__image_gain}")
+        try:
+            self.__camera.image_gain = self.__image_gain
+        except TimeoutError:
+            logger.error("A timeout has occured when setting the white balance gain, trying again")
+            self.__camera.image_gain = self.__image_gain
+        except ValueError as e:
+            logger.error("The requested image gain is not valid!")
+            self.imager_client.client.publish(
+                "status/imager",
+                '{"status":"Error: Image gain not valid"}',
+            )
+            raise e
 
     # copied #
     @logger.catch
