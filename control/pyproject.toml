@@ -76,12 +76,33 @@ loguru = [
 ]
 
 [tool.black]
-# We are gradually introducing autoformatting as we rewrite each module. For now, we will only
-# autoformat the new imager module:
-include = '''
+# We are gradually introducing standard formatting as we rewrite each module; we haven't rewritten
+# the following files yet:
+extend_exclude = '''
 (
-    adafruithat\/planktoscope\/imagernew\/.*\.pyi?$
-  | pscopehat\/planktoscope\/imagernew\/.*\.pyi?$
+    adafruithat/main.py
+  | adafruithat/planktoscope/__init__.py
+  | adafruithat/planktoscope/display.py
+  | adafruithat/planktoscope/identity.py
+  | adafruithat/planktoscope/integrity.py
+  | adafruithat/planktoscope/light.py
+  | adafruithat/planktoscope/mqtt.py
+  | adafruithat/planktoscope/stepper.py
+  | adafruithat/planktoscope/uuidName.py
+  | adafruithat/planktoscope/imager/.*
+  | pscopehat/main.py
+  | pscopehat/main_thread.py
+  | pscopehat/shush/.*
+  | pscopehat/planktoscope/__init__.py
+  | pscopehat/planktoscope/display.py
+  | pscopehat/planktoscope/identity.py
+  | pscopehat/planktoscope/integrity.py
+  | pscopehat/planktoscope/light.py
+  | pscopehat/planktoscope/module.py
+  | pscopehat/planktoscope/mqtt.py
+  | pscopehat/planktoscope/stepper.py
+  | pscopehat/planktoscope/uuidName.py
+  | pscopehat/planktoscope/imager/.*
 )
 '''
 line-length = 100
@@ -91,8 +112,9 @@ profile = "black"
 skip_gitignore = true
 line_length = 100
 known_first_party = ["planktoscope", "shush"]
+# We are gradually introducing deterministic import ordering as we rewrite each module; we haven't
+# rewritten the following files yet:
 extend_skip_glob = [
-  # We are gradually introducing deterministic import ordering as we rewrite each module.
   "adafruithat/main.py",
   "adafruithat/planktoscope/__init__.py",
   "adafruithat/planktoscope/display.py",
@@ -119,8 +141,33 @@ extend_skip_glob = [
 ]
 
 [tool.pylama]
-# We are gradually introducing linting as we rewrite each module.
-skip='adafruithat/main.py,adafruithat/planktoscope/__init__.py,adafruithat/planktoscope/display.py,adafruithat/planktoscope/identity.py,adafruithat/planktoscope/integrity.py,adafruithat/planktoscope/light.py,adafruithat/planktoscope/mqtt.py,adafruithat/planktoscope/stepper.py,adafruithat/planktoscope/uuidName.py,adafruithat/planktoscope/imager/*,pscopehat/main.py,pscopehat/main_thread.py,pscopehat/shush/*,pscopehat/planktoscope/__init__.py,pscopehat/planktoscope/display.py,pscopehat/planktoscope/identity.py,pscopehat/planktoscope/integrity.py,pscopehat/planktoscope/light.py,pscopehat/planktoscope/module.py,pscopehat/planktoscope/mqtt.py,pscopehat/planktoscope/stepper.py,pscopehat/planktoscope/uuidName.py,pscopehat/planktoscope/imager/*'
+# We are gradually introducing linting as we rewrite each module; we haven't rewritten the following
+# files yet:
+skip='''
+adafruithat/main.py,\
+adafruithat/planktoscope/__init__.py,\
+adafruithat/planktoscope/display.py,\
+adafruithat/planktoscope/identity.py,\
+adafruithat/planktoscope/integrity.py,\
+adafruithat/planktoscope/light.py,\
+adafruithat/planktoscope/mqtt.py,\
+adafruithat/planktoscope/stepper.py,\
+adafruithat/planktoscope/uuidName.py,\
+adafruithat/planktoscope/imager/*,\
+pscopehat/main.py,\
+pscopehat/main_thread.py,\
+pscopehat/shush/*,\
+pscopehat/planktoscope/__init__.py,\
+pscopehat/planktoscope/display.py,\
+pscopehat/planktoscope/identity.py,\
+pscopehat/planktoscope/integrity.py,\
+pscopehat/planktoscope/light.py,\
+pscopehat/planktoscope/module.py,\
+pscopehat/planktoscope/mqtt.py,\
+pscopehat/planktoscope/stepper.py,\
+pscopehat/planktoscope/uuidName.py,\
+pscopehat/planktoscope/imager/*,\
+'''
 
 [tool.pylama.linter.pycodestyle]
 max_line_length = 100
