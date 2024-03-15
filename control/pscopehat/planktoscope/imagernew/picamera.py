@@ -3,19 +3,14 @@
 ################################################################################
 
 # Libraries to manage the camera
-from picamera2 import Picamera2, Preview
+from picamera2 import Picamera2
 from libcamera import controls
-from picamera2.encoders import JpegEncoder, MJPEGEncoder, Quality
+from picamera2.encoders import MJPEGEncoder, Quality
 from picamera2.outputs import FileOutput
 
 # Logger library compatible with multiprocessing
 from loguru import logger
 
-# Library for path and filesystem manipulations
-import os
-
-# Libraries to get date and time for folder name and filename
-import datetime
 import time
 
 # import json
@@ -31,7 +26,8 @@ class picamera:
         """Initialize the picamera class
 
         Args:
-            output (picam_streamer.StreamingOutput): receive encoded video frames directly from the encoder and forward them to network sockets
+            output (picam_streamer.StreamingOutput): receive encoded video frames directly from the
+            encoder and forward them to network sockets
         """
         # Note(ethanjli): if we instantiate Picamera2 here in one process and then call the start
         # method from a child process, then the start method's call of self.__picam.configure
@@ -78,7 +74,6 @@ class picamera:
         # Start recording with video encoding and writing video frames
         # Note(ethanjli): see note above about JpegEncoder vs. MJPEGEncoder compatibility with
         # "lores" streams!
-        # self.__picam.start_recording(JpegEncoder(), FileOutput(self.__output), Quality.HIGH)
         self.__picam.start_recording(
             MJPEGEncoder(), FileOutput(self.__output), Quality.HIGH
         )
@@ -99,11 +94,10 @@ class picamera:
                 )
                 logger.error("This error can't be recovered from, terminating now")
                 raise e
-        try:        
+        try:
             while not self.stop_event.is_set():
                 if not self.command_queue.empty():
                     try:
-                        # Retrieve a command from the queue with a timeout to avoid indefinite blocking
                         command = self.command_queue.get(timeout=0.1)
                     except Exception as e:
                         logger.exception(f"An error has occurred while handling a command: {e}")
@@ -229,7 +223,8 @@ class picamera:
     def white_balance_gain(self, gain):
         """Change the camera white balance gain
 
-            The gain value should be a floating point number between 0.0 and 32.0 for the red and the blue gain.
+            The gain value should be a floating point number between 0.0 and 32.0 for
+            the red and the blue gain.
 
         Args:
             gain (tuple of float): Red gain and blue gain to use
@@ -253,8 +248,9 @@ class picamera:
     def image_gain(self, gain):
         """Change the camera image gain
 
-            The camera image gain value should be a floating point number between 1.0 and 16.0 for the analogue gain and
-            the digital gain (used automatically when the sensor’s analogue gain control cannot go high enough).
+            The camera image gain value should be a floating point number between 1.0 and 16.0
+            for the analog gain and the digital gain (used automatically when the sensor’s
+            analog gain control cannot go high enough).
 
         Args:
             gain (float): Image gain to use

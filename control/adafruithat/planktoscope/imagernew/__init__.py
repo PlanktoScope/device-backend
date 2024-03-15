@@ -2,7 +2,6 @@ import datetime  # needed to get date and time for folder name and filename
 import time  # needed to able to sleep for a given duration
 import json
 import os
-import shutil
 import multiprocessing
 import threading  # needed for the streaming server
 import functools  # needed for the streaming server
@@ -185,12 +184,12 @@ class ImagerProcess(multiprocessing.Process):
                 )
                 try:
                     self.__camera.exposure_time = self.__exposure_time
-                except TimeoutError as e:
+                except TimeoutError:
                     logger.error(
                         "A timeout has occured when setting the shutter speed, trying again"
                     )
                     self.__camera.exposure_time = self.__exposure_time
-                except ValueError as e:
+                except ValueError:
                     logger.error("The requested shutter speed is not valid!")
                     self.imager_client.client.publish(
                         "status/imager", '{"status":"Error: Shutter speed not valid"}'
@@ -200,7 +199,8 @@ class ImagerProcess(multiprocessing.Process):
             if "white_balance_gain" in settings:
                 if "red" in settings["white_balance_gain"]:
                     logger.debug(
-                        f"Updating the camera white balance red gain to {settings['white_balance_gain']}"
+                        "Updating the camera white balance red gain to "
+                        + f"{settings['white_balance_gain']}"
                     )
                     self.__white_balance_gain = (
                         settings["white_balance_gain"].get(
@@ -210,7 +210,8 @@ class ImagerProcess(multiprocessing.Process):
                     )
                 if "blue" in settings["white_balance_gain"]:
                     logger.debug(
-                        f"Updating the camera white balance blue gain to {settings['white_balance_gain']}"
+                        "Updating the camera white balance blue gain to "
+                        + f"{settings['white_balance_gain']}"
                     )
                     self.__white_balance_gain = (
                         self.__white_balance_gain[0],
@@ -223,12 +224,12 @@ class ImagerProcess(multiprocessing.Process):
                 )
                 try:
                     self.__camera.white_balance_gain = self.__white_balance_gain
-                except TimeoutError as e:
+                except TimeoutError:
                     logger.error(
                         "A timeout has occured when setting the white balance gain, trying again"
                     )
                     self.__camera.white_balance_gain = self.__white_balance_gain
-                except ValueError as e:
+                except ValueError:
                     logger.error("The requested white balance gain is not valid!")
                     self.imager_client.client.publish(
                         "status/imager",
@@ -248,16 +249,16 @@ class ImagerProcess(multiprocessing.Process):
                 )
                 try:
                     self.__camera.white_balance = self.__white_balance
-                except TimeoutError as e:
+                except TimeoutError:
                     logger.error(
                         "A timeout has occured when setting the white balance, trying again"
                     )
                     self.__camera.white_balance = self.__white_balance
-                except ValueError as e:
+                except ValueError:
                     logger.error("The requested white balance is not valid!")
                     self.imager_client.client.publish(
                         "status/imager",
-                        f'{"status":"Error: White balance mode {self.__white_balance} is not valid"}',
+                        f'{"status":"Error: Invalid white balance mode {self.__white_balance}"}',
                     )
                     return
 
@@ -272,12 +273,12 @@ class ImagerProcess(multiprocessing.Process):
                 logger.debug(f"Updating the camera image gain to {self.__image_gain}")
                 try:
                     self.__camera.image_gain = self.__image_gain
-                except TimeoutError as e:
+                except TimeoutError:
                     logger.error(
                         "A timeout has occured when setting the white balance gain, trying again"
                     )
                     self.__camera.image_gain = self.__image_gain
-                except ValueError as e:
+                except ValueError:
                     logger.error("The requested image gain is not valid!")
                     self.imager_client.client.publish(
                         "status/imager",
@@ -425,16 +426,16 @@ class ImagerProcess(multiprocessing.Process):
         # Create the integrity file in this export path
         try:
             planktoscope.integrity.create_integrity_file(self.__export_path)
-        except FileExistsError as e:
+        except FileExistsError:
             logger.info(
                 f"The integrity file already exists in this export path {self.__export_path}"
             )
         # Add the metadata.json file to the integrity file
         try:
             planktoscope.integrity.append_to_integrity_file(metadata_filepath)
-        except FileNotFoundError as e:
+        except FileNotFoundError:
             logger.error(
-                f"{metadata_filepath} was not found, the metadata.json may not have been created properly!"
+                f"{metadata_filepath} was not found, the metadata file may not have been created!"
             )
 
         self.__pump_message()
@@ -457,7 +458,7 @@ class ImagerProcess(multiprocessing.Process):
         # Capture an image to the temporary file
         try:
             self.__camera.capture(filename_path)
-        except TimeoutError as e:
+        except TimeoutError:
             self.__capture_error("timeout during capture")
             return
 
@@ -467,13 +468,13 @@ class ImagerProcess(multiprocessing.Process):
         # Add the checksum of the captured image to the integrity file
         try:
             planktoscope.integrity.append_to_integrity_file(filename_path)
-        except FileNotFoundError as e:
+        except FileNotFoundError:
             self.__capture_error(f"{filename_path} was not found")
             return
 
         self.imager_client.client.publish(
             "status/imager",
-            f'{{"status":"Image {self.__img_done + 1}/{self.__img_goal} has been imaged to {filename}"}}',
+            f'{{"status":"Image {self.__img_done + 1}/{self.__img_goal} saved to {filename}"}}',
         )
 
         # Increment the counter
@@ -502,7 +503,8 @@ class ImagerProcess(multiprocessing.Process):
             logger.error("This is a repeating problem, stopping the capture now")
             self.imager_client.client.publish(
                 "status/imager",
-                f'{{"status":"Image {self.__img_done + 1}/{self.__img_goal} WAS NOT CAPTURED! STOPPING THE PROCESS!"}}',
+                f'{{"status":"Image {self.__img_done + 1}/{self.__img_goal} WAS NOT CAPTURED! '
+                + 'STOPPING THE PROCESS!"}}',
             )
             self.__img_done = 0
             self.__img_goal = 0
@@ -512,7 +514,8 @@ class ImagerProcess(multiprocessing.Process):
             self.__error += 1
             self.imager_client.client.publish(
                 "status/imager",
-                f'{{"status":"Image {self.__img_done + 1}/{self.__img_goal} was not captured due to this error:{message}! Retrying once!"}}',
+                f'{{"status":"Image {self.__img_done + 1}/{self.__img_goal} was not captured '
+                + 'due to this error:{message}! Retrying once!"}}',
             )
         time.sleep(1)
 
@@ -608,7 +611,8 @@ class ImagerProcess(multiprocessing.Process):
         else:
             self.__resolution = (1280, 1024)
             logger.error(
-                f"The connected camera {self.__camera.sensor_name} is not recognized, please check your camera"
+                f"The connected camera {self.__camera.sensor_name} is not recognized, "
+                + "please check your camera"
             )"""
 
         try:
@@ -633,10 +637,10 @@ class ImagerProcess(multiprocessing.Process):
 
             logger.success("Camera is READY!")
 
-            ################### Move to the state of getting ready to start instead of stop by default
+            # Move to the state of getting ready to start instead of stop by default
             # self.__imager.change(planktoscope.imagernew.state_machine.Imaging)
 
-            ################### While loop for capturing commands from Node-RED (later! the display is prior)
+            # While loop for capturing commands from Node-RED (later! the display is prior)
             while not self.stop_event.is_set():
                 if self.imager_client.new_message_received():
                     self.treat_message()

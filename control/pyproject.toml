@@ -48,6 +48,7 @@ priority = "primary"
 [tool.poetry.group.dev.dependencies]
 black = "^24.2.0"
 poethepoet = "^0.25.0"
+pylama = {extras = ["all", "toml"], version = "^8.4.1"}
 
 [tool.poetry.group.hw.dependencies]
 rpi-gpio = "~0.7.1a4"
@@ -84,7 +85,11 @@ include = '''
 )
 '''
 
+[tool.pylama]
+skip='adafruithat/main.py,adafruithat/planktoscope/__init__.py,adafruithat/planktoscope/display.py,adafruithat/planktoscope/identity.py,adafruithat/planktoscope/integrity.py,adafruithat/planktoscope/light.py,adafruithat/planktoscope/mqtt.py,adafruithat/planktoscope/stepper.py,adafruithat/planktoscope/uuidName.py,adafruithat/planktoscope/imager/*,pscopehat/main.py,pscopehat/main_thread.py,pscopehat/shush/*,pscopehat/planktoscope/__init__.py,pscopehat/planktoscope/display.py,pscopehat/planktoscope/identity.py,pscopehat/planktoscope/integrity.py,pscopehat/planktoscope/light.py,pscopehat/planktoscope/module.py,pscopehat/planktoscope/mqtt.py,pscopehat/planktoscope/stepper.py,pscopehat/planktoscope/uuidName.py,pscopehat/planktoscope/imager/*'
+
 [tool.poe.tasks]
 fmt = "black ."
 check-fmt = "black --diff --color ."
-check = ["check-fmt"]
+lint = "pylama"
+check = ["check-fmt", "lint"]

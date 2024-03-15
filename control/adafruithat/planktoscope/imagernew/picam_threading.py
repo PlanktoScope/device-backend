@@ -27,7 +27,8 @@ class PicamThread(threading.Thread):
 
         Args:
             camera: picamera instance
-            command_queue (queue.Queue): queue for commands, when info must be exchanged safely between several threads
+            command_queue (queue.Queue): queue for commands, when info must be exchanged safely
+            between several threads
             stop_event (multiprocessing.Event or threading.Event): shutdown event
         """
         super().__init__()
