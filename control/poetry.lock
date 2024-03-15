@@ -1314,4 +1314,4 @@ reference = "piwheels"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9.2"
-content-hash = "8cb4fb8f892688e5cf6ee37fba9be081bcb980537d0c35eaad89311b8fb963da"
+content-hash = "4e177e02aa0c0d4a45c306f1d82fac26c3f68ec6937c2930e9103885f5f6d151"

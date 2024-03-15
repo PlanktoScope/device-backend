@@ -1,22 +1,7 @@
-################################################################################
-# Practical Libraries
-################################################################################
-
-# Library to execute picamera in a separate thread within the imager process
 import threading
-
-# Logger library compatible with multiprocessing
-from loguru import logger
-
-# Library to create a queue for commands coming to the camera
-# import queue
-
-# Library to manage time commands and delay execution for a given time
 import time
 
-################################################################################
-# Class for the implementation of picamera2 thread
-################################################################################
+from loguru import logger
 
 
 class PicamThread(threading.Thread):

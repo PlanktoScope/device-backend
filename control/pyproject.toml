@@ -76,9 +76,9 @@ loguru = [
 ]
 
 [tool.black]
-include = '''
 # We are gradually introducing autoformatting as we rewrite each module. For now, we will only
 # autoformat the new imager module:
+include = '''
 (
     adafruithat\/planktoscope\/imagernew\/.*\.pyi?$
   | pscopehat\/planktoscope\/imagernew\/.*\.pyi?$
@@ -86,7 +86,40 @@ include = '''
 '''
 line-length = 100
 
+[tool.isort]
+profile = "black"
+skip_gitignore = true
+line_length = 100
+known_first_party = ["planktoscope", "shush"]
+extend_skip_glob = [
+  # We are gradually introducing deterministic import ordering as we rewrite each module.
+  "adafruithat/main.py",
+  "adafruithat/planktoscope/__init__.py",
+  "adafruithat/planktoscope/display.py",
+  "adafruithat/planktoscope/identity.py",
+  "adafruithat/planktoscope/integrity.py",
+  "adafruithat/planktoscope/light.py",
+  "adafruithat/planktoscope/mqtt.py",
+  "adafruithat/planktoscope/stepper.py",
+  "adafruithat/planktoscope/uuidName.py",
+  "adafruithat/planktoscope/imager/*",
+  "pscopehat/main.py",
+  "pscopehat/main_thread.py",
+  "pscopehat/shush/*",
+  "pscopehat/planktoscope/__init__.py",
+  "pscopehat/planktoscope/display.py",
+  "pscopehat/planktoscope/identity.py",
+  "pscopehat/planktoscope/integrity.py",
+  "pscopehat/planktoscope/light.py",
+  "pscopehat/planktoscope/module.py",
+  "pscopehat/planktoscope/mqtt.py",
+  "pscopehat/planktoscope/stepper.py",
+  "pscopehat/planktoscope/uuidName.py",
+  "pscopehat/planktoscope/imager/*"
+]
+
 [tool.pylama]
+# We are gradually introducing linting as we rewrite each module.
 skip='adafruithat/main.py,adafruithat/planktoscope/__init__.py,adafruithat/planktoscope/display.py,adafruithat/planktoscope/identity.py,adafruithat/planktoscope/integrity.py,adafruithat/planktoscope/light.py,adafruithat/planktoscope/mqtt.py,adafruithat/planktoscope/stepper.py,adafruithat/planktoscope/uuidName.py,adafruithat/planktoscope/imager/*,pscopehat/main.py,pscopehat/main_thread.py,pscopehat/shush/*,pscopehat/planktoscope/__init__.py,pscopehat/planktoscope/display.py,pscopehat/planktoscope/identity.py,pscopehat/planktoscope/integrity.py,pscopehat/planktoscope/light.py,pscopehat/planktoscope/module.py,pscopehat/planktoscope/mqtt.py,pscopehat/planktoscope/stepper.py,pscopehat/planktoscope/uuidName.py,pscopehat/planktoscope/imager/*'
 
 [tool.pylama.linter.pycodestyle]
@@ -96,7 +129,10 @@ max_line_length = 100
 max_line_length = 100
 
 [tool.poe.tasks]
-fmt = "black ."
-check-fmt = "black --diff --color ."
+fmt-black = "black ."
+fmt-isort = "isort ."
+fmt = ["fmt-black", "fmt-isort"]
+check-black = "black --diff --color ."
+check-isort = "isort --check --diff ."
 lint = "pylama"
-check = ["check-fmt", "lint"]
+check = ["check-black", "check-isort", "lint"]

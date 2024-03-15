@@ -1,11 +1,10 @@
+import functools
+
 from picamera2 import Picamera2
 from picamera2.encoders import MJPEGEncoder
 from picamera2.outputs import FileOutput
 
-import functools
-
 import planktoscope.imagernew.picam_streamer as stream
-
 
 picam2 = Picamera2()
 picam2.configure(picam2.create_video_configuration(main={"size": (640, 480)}))

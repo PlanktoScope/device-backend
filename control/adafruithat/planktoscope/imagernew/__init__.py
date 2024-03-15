@@ -1,29 +1,25 @@
-import datetime  # needed to get date and time for folder name and filename
-import time  # needed to able to sleep for a given duration
+import datetime
+import functools
 import json
-import os
 import multiprocessing
-import threading  # needed for the streaming server
-import functools  # needed for the streaming server
-import queue  # needed to create a queue for commands coming to the camera
+import os
+import queue
+import threading
+import time
 
 from loguru import logger
 
-import planktoscope.mqtt
-import planktoscope.imagernew.state_machine
-import planktoscope.imagernew.picamera
+import planktoscope.identity
 import planktoscope.imagernew.picam_streamer
 import planktoscope.imagernew.picam_threading
+import planktoscope.imagernew.picamera
+import planktoscope.imagernew.state_machine
 import planktoscope.integrity
-import planktoscope.identity
-
+import planktoscope.mqtt
 
 logger.info("planktoscope.imager is loaded")
 
 
-################################################################################
-# Main Imager class
-################################################################################
 class ImagerProcess(multiprocessing.Process):
     """This class contains the main definitions for the imager of the PlanktoScope"""
 

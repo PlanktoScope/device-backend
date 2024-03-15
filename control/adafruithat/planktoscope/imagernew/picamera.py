@@ -1,24 +1,11 @@
-################################################################################
-# Practical Libraries
-################################################################################
-
-# Libraries to manage the camera
-from picamera2 import Picamera2
-from libcamera import controls
-from picamera2.encoders import MJPEGEncoder, Quality
-from picamera2.outputs import FileOutput
-
-# Logger library compatible with multiprocessing
-from loguru import logger
-
 import time
 
-# import json
+import libcamera
+import loguru
+import picamera2
+from picamera2 import encoders, outputs
 
 
-################################################################################
-# Class for the implementation of Picamera 2
-################################################################################
 class picamera:
     """This class contains the main definitions of picamera2 monitoring the PlanktoScope's camera"""
 
@@ -42,14 +29,14 @@ class picamera:
 
     # TODO decide which stream to display (main, lores or raw)
     def start(self, force=False):
-        self.__picam = Picamera2()
-        logger.debug("Starting up picamera2")
+        self.__picam = picamera2.Picamera2()
+        loguru.logger.debug("Starting up picamera2")
         if force:
             # let's close the camera first
             try:
                 self.close()
             except Exception as e:
-                logger.exception(f"Closing picamera2 failed because of {e}")
+                loguru.logger.exception(f"Closing picamera2 failed because of {e}")
 
         # Configure the camera with a video configuration for streaming video frames
         half_resolution = [dim // 2 for dim in self.__picam.sensor_resolution]
@@ -72,7 +59,9 @@ class picamera:
         # Start recording with video encoding and writing video frames
         # Note(ethanjli): see note above about JpegEncoder vs. MJPEGEncoder compatibility with
         # "lores" streams!
-        self.__picam.start_recording(MJPEGEncoder(), FileOutput(self.__output), Quality.HIGH)
+        self.__picam.start_recording(
+            encoders.MJPEGEncoder(), outputs.FileOutput(self.__output), encoders.Quality.HIGH
+        )
 
     # NOTE function drafted as a target of the camera thread (simple version)
     """def preview_picam(self):
@@ -132,13 +121,13 @@ class picamera:
         Args:
             exposure_time (int): exposure time in µs
         """
-        logger.debug(f"Setting the exposure time to {exposure_time}")
+        loguru.logger.debug(f"Setting the exposure time to {exposure_time}")
         if 0 < exposure_time < 66666:
             self.__exposure_time = exposure_time
             with self.__picam.controls as ctrls:
                 ctrls.ExposureTime = self.__exposure_time
         else:
-            logger.error(f"The exposure time specified ({exposure_time}) is not valid")
+            loguru.logger.error(f"The exposure time specified ({exposure_time}) is not valid")
             raise ValueError
 
     @property
@@ -154,12 +143,12 @@ class picamera:
         Args:
             mode (string): exposure mode to use
         """
-        logger.debug(f"Setting the exposure mode to {mode}")
+        loguru.logger.debug(f"Setting the exposure mode to {mode}")
         modes = {
             "off": False,
-            "normal": controls.AeExposureModeEnum.Normal,
-            "short": controls.AeExposureModeEnum.Short,
-            "long": controls.AeExposureModeEnum.Long,
+            "normal": libcamera.controls.AeExposureModeEnum.Normal,
+            "short": libcamera.controls.AeExposureModeEnum.Short,
+            "long": libcamera.controls.AeExposureModeEnum.Long,
         }
         if mode in modes:
             self.__exposure_mode = modes[mode]
@@ -170,7 +159,7 @@ class picamera:
                     {"AeEnable": 1, "AeExposureMode": self.__exposure_mode}
                 )  # "AeEnable": 1,
         else:
-            logger.error(f"The exposure mode specified ({mode}) is not valid")
+            loguru.logger.error(f"The exposure mode specified ({mode}) is not valid")
             raise ValueError
 
     @property
@@ -187,15 +176,15 @@ class picamera:
         Args:
             mode (string): white balance mode to use
         """
-        logger.debug(f"Setting the white balance mode to {mode}")
+        loguru.logger.debug(f"Setting the white balance mode to {mode}")
         modes = {
             "off": False,
-            "auto": controls.AwbModeEnum.Auto,
-            "tungsten": controls.AwbModeEnum.Tungsten,
-            "fluorescent": controls.AwbModeEnum.Fluorescent,
-            "indoor": controls.AwbModeEnum.Indoor,
-            "daylight": controls.AwbModeEnum.Daylight,
-            "cloudy": controls.AwbModeEnum.Cloudy,
+            "auto": libcamera.controls.AwbModeEnum.Auto,
+            "tungsten": libcamera.controls.AwbModeEnum.Tungsten,
+            "fluorescent": libcamera.controls.AwbModeEnum.Fluorescent,
+            "indoor": libcamera.controls.AwbModeEnum.Indoor,
+            "daylight": libcamera.controls.AwbModeEnum.Daylight,
+            "cloudy": libcamera.controls.AwbModeEnum.Cloudy,
         }
         if mode in modes:
             self.__white_balance = modes[mode]
@@ -206,7 +195,7 @@ class picamera:
                     {"AwbEnable": 1, "AwbMode": self.__white_balance}
                 )  # "AwbEnable": 1,
         else:
-            logger.error(f"The camera white balance mode specified ({mode}) is not valid")
+            loguru.logger.error(f"The camera white balance mode specified ({mode}) is not valid")
             raise ValueError
 
     @property
@@ -223,13 +212,13 @@ class picamera:
         Args:
             gain (tuple of float): Red gain and blue gain to use
         """
-        logger.debug(f"Setting the white balance gain to {gain}")
+        loguru.logger.debug(f"Setting the white balance gain to {gain}")
         if (0.0 <= gain[0] <= 32.0) and (0.0 <= gain[1] <= 32.0):
             self.__white_balance_gain = gain
             with self.__picam.controls as ctrls:
                 ctrls.ColourGains = self.__white_balance_gain
         else:
-            logger.error(f"The camera white balance gain specified ({gain}) is not valid")
+            loguru.logger.error(f"The camera white balance gain specified ({gain}) is not valid")
             raise ValueError
 
     @property
@@ -247,13 +236,13 @@ class picamera:
         Args:
             gain (float): Image gain to use
         """
-        logger.debug(f"Setting the analogue gain to {gain}")
+        loguru.logger.debug(f"Setting the analogue gain to {gain}")
         if 1.0 <= gain <= 16.0:
             self.__image_gain = gain
             with self.__picam.controls as ctrls:
                 ctrls.AnalogueGain = self.__image_gain  # DigitalGain
         else:
-            logger.error(f"The camera image gain specified ({gain}) is not valid")
+            loguru.logger.error(f"The camera image gain specified ({gain}) is not valid")
             raise ValueError
 
     @property
@@ -267,12 +256,14 @@ class picamera:
         Args:
             image_quality (int): image quality [0,100]
         """
-        logger.debug(f"Setting image quality to {image_quality}")
+        loguru.logger.debug(f"Setting image quality to {image_quality}")
         if 0 <= image_quality <= 100:
             self.__image_quality = image_quality
             self.__picam.options["quality"] = self.__image_quality
         else:
-            logger.error(f"The output image quality specified ({image_quality}) is not valid")
+            loguru.logger.error(
+                f"The output image quality specified ({image_quality}) is not valid"
+            )
             raise ValueError
 
     # TODO complete (if needed) the setters and getters of resolution & iso
@@ -284,7 +275,7 @@ class picamera:
         Args:
             path (str, optional): Path to image file. Defaults to "".
         """
-        logger.debug(f"Capturing an image to {path}")
+        loguru.logger.debug(f"Capturing an image to {path}")
         # metadata = self.__picam.capture_file(path) #use_video_port
         request = self.__picam.capture_request()
         request.save("main", path)
@@ -294,11 +285,11 @@ class picamera:
 
     def stop(self):
         """Release the camera"""
-        logger.debug("Releasing the camera now")
+        loguru.logger.debug("Releasing the camera now")
         self.__picam.stop_preview()
         self.__picam.stop_recording()
 
     def close(self):
         """Close the camera"""
-        logger.debug("Closing the camera now")
+        loguru.logger.debug("Closing the camera now")
         self.__picam.close()

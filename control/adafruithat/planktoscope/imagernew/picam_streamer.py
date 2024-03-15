@@ -1,11 +1,10 @@
-from loguru import logger
-
-import io
-import time
-
-import socketserver
 import http.server
+import io
+import socketserver
+import time
 from threading import Condition
+
+from loguru import logger
 
 
 ################################################################################
