@@ -9,7 +9,7 @@ from picamera2 import encoders, outputs
 class picamera:
     """This class contains the main definitions of picamera2 monitoring the PlanktoScope's camera"""
 
-    def __init__(self, output, *args, **kwargs):
+    def __init__(self, output):
         """Initialize the picamera class
 
         Args:
@@ -23,9 +23,10 @@ class picamera:
         # properly initialize self.__picam in the start method, which is called by a different
         # process than the process which calls __init__.
         self.__picam = None
-        self.__controls = {}
         self.__output = output
         self.__sensor_name = ""
+        self.__width = None
+        self.__height = None
 
     # TODO decide which stream to display (main, lores or raw)
     def start(self, force=False):
@@ -64,33 +65,33 @@ class picamera:
         )
 
     # NOTE function drafted as a target of the camera thread (simple version)
-    """def preview_picam(self):
-        try:
-            self.__picam.start()
-        except Exception as e:
-            logger.exception(
-                f"An exception has occured when starting up picamera2: {e}"
-            )
-            try:
-                self.__picam.start(True)
-            except Exception as e:
-                logger.exception(
-                    f"A second exception has occured when starting up picamera2: {e}"
-                )
-                logger.error("This error can't be recovered from, terminating now")
-                raise e
-        try:
-            while not self.stop_event.is_set():
-                if not self.command_queue.empty():
-                    try:
-                        command = self.command_queue.get(timeout=0.1)
-                    except Exception as e:
-                        logger.exception(f"An error has occurred while handling a command: {e}")
-                pass
-                time.sleep(0.01)
-        finally:
-            self.__picam.stop()
-            self.__picam.close()"""
+    # def preview_picam(self):
+    #     try:
+    #         self.__picam.start()
+    #     except Exception as e:
+    #         logger.exception(
+    #             f"An exception has occured when starting up picamera2: {e}"
+    #         )
+    #         try:
+    #             self.__picam.start(True)
+    #         except Exception as e:
+    #             logger.exception(
+    #                 f"A second exception has occured when starting up picamera2: {e}"
+    #             )
+    #             logger.error("This error can't be recovered from, terminating now")
+    #             raise e
+    #     try:
+    #         while not self.stop_event.is_set():
+    #             if not self.command_queue.empty():
+    #                 try:
+    #                     command = self.command_queue.get(timeout=0.1)
+    #                 except Exception as e:
+    #                     logger.exception(f"An error has occurred while handling a command: {e}")
+    #             pass
+    #             time.sleep(0.01)
+    #     finally:
+    #         self.__picam.stop()
+    #         self.__picam.close()
 
     @property
     def sensor_name(self):

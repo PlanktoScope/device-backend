@@ -5,7 +5,7 @@ import loguru
 # "wait for pump" as pump
 # "start imager" as imager
 # "capture image" as capture
-#
+
 # START->stop["init"]
 # imager->pump["start pumping"]
 # pump->stop["stop"]
@@ -58,7 +58,7 @@ class Capture(ImagerState):
     allowed = ["stop", "waiting"]
 
 
-class Imager(object):
+class Imager:
     """A class representing the imager"""
 
     def __init__(self):

@@ -1,3 +1,6 @@
+"""test_streamer is a test script to bring up an isolated camera preview stream on port 8000."""
+
+# TODO: delete this file!
 import functools
 
 import picamera2
@@ -12,8 +15,7 @@ picam2.start_recording(encoders.MJPEGEncoder(), outputs.FileOutput(streaming_out
 
 try:
     address = ("", 8000)
-    refresh_delay = 1 / 15
-    handler = functools.partial(picam_streamer.StreamingHandler, refresh_delay, streaming_output)
+    handler = functools.partial(picam_streamer.StreamingHandler, 1 / 15, streaming_output)
     server = picam_streamer.StreamingServer(address, handler)
     server.serve_forever()
 finally:

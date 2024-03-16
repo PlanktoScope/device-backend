@@ -12,6 +12,7 @@ import loguru
 ################################################################################
 class StreamingOutput(io.BufferedIOBase):
     def __init__(self):
+        super().__init__()
         self.frame = None
         self.condition = threading.Condition()
 
@@ -25,7 +26,7 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
     def __init__(self, delay, output, *args, **kwargs):
         self.delay = delay
         self.output = output
-        super(StreamingHandler, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     @loguru.logger.catch
     def do_GET(self):
