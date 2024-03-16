@@ -16,9 +16,9 @@ import loguru
 
 
 # State machine class
-class ImagerState(object):
+class ImagerState:
     name = "state"
-    allowed = []
+    allowed: list[str] = []
 
     def switch(self, state):
         """Switch to new state"""

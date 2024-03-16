@@ -28,7 +28,8 @@ class PicamThread(threading.Thread):
         except Exception as e:
             loguru.logger.exception(f"An exception has occured when starting up picamera2: {e}")
             try:
-                self.__picam.start(True)
+                self.__picam.close()
+                self.__picam.start()
             except Exception as e_second:
                 loguru.logger.exception(
                     f"A second exception has occured when starting up picamera2: {e_second}"

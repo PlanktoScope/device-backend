@@ -10,7 +10,7 @@ import time
 import loguru
 
 from planktoscope import identity, integrity, mqtt
-from planktoscope.imagernew import picam_streamer, picam_threading, picamera, state_machine
+from planktoscope.imagernew import camera, mjpeg, picam_threading, state_machine, streams
 
 loguru.logger.info("planktoscope.imager is loaded")
 
@@ -55,8 +55,8 @@ class ImagerProcess(multiprocessing.Process):
         self.__error = 0
 
         # Initialize the camera
-        self.streaming_output = picam_streamer.StreamingOutput()
-        self.__camera = picamera.picamera(self.streaming_output)
+        self.preview_stream = streams.LatestByteBuffer()
+        self.__camera = camera.PiCamera(self.preview_stream)
         self.__resolution = None  # this is set by the start method
 
         self.__iso = iso
@@ -534,8 +534,8 @@ class ImagerProcess(multiprocessing.Process):
             )
 
             # Note(ethanjli): the camera must be started in the same process as anything which uses
-            # self.streaming_output, such as our StreamingHandler. This is because
-            # self.streaming_output does not synchronize state across independent processes!
+            # self.preview_stream, such as our StreamingHandler. This is because
+            # self.preview_stream does not synchronize state across independent processes!
             # TODO(ethanjli): it would be cleaner if we can start the camera and the StreamingServer
             # separately from the MQTT client; if it's possible, we can figure that out later.
             # TODO(W7CH): Start the video recording
@@ -579,12 +579,8 @@ class ImagerProcess(multiprocessing.Process):
             address = ("", 8000)
             fps = 15
             refresh_delay = 1 / fps
-            handler = functools.partial(
-                picam_streamer.StreamingHandler,
-                refresh_delay,
-                self.streaming_output,
-            )
-            server = picam_streamer.StreamingServer(address, handler)
+            handler = functools.partial(mjpeg.StreamingHandler, refresh_delay, self.preview_stream)
+            server = mjpeg.StreamingServer(address, handler)
             self.streaming_thread = threading.Thread(target=server.serve_forever, daemon=True)
             self.streaming_thread.start()
 

@@ -10,7 +10,7 @@ import time
 import loguru
 
 from planktoscope import identity, integrity, mqtt
-from planktoscope.imagernew import picam_streamer, picam_threading, picamera, state_machine
+from planktoscope.imagernew import camera, mjpeg, picam_threading, state_machine, streams
 
 loguru.logger.info("planktoscope.imager is loaded")
 
@@ -26,13 +26,13 @@ class ImagerProcess(multiprocessing.Process):
             iso (int, optional): ISO sensitivity. Defaults to 100.
             exposure_time (int, optional): Shutter speed of the camera, default to 10000.
         """
-        super(ImagerProcess, self).__init__(name="imager")
+        super().__init__(name="imager")
 
         loguru.logger.info("planktoscope.imager is initialising")
 
         if os.path.exists("/home/pi/PlanktoScope/hardware.json"):
             # load hardware.json
-            with open("/home/pi/PlanktoScope/hardware.json", "r") as config_file:
+            with open("/home/pi/PlanktoScope/hardware.json", "r", encoding="utf-8") as config_file:
                 configuration = json.load(config_file)
                 loguru.logger.debug(f"Hardware configuration loaded is {configuration}")
         else:
@@ -55,11 +55,11 @@ class ImagerProcess(multiprocessing.Process):
         self.__error = 0
 
         # Initialize the camera
-        self.streaming_output = picam_streamer.StreamingOutput()
-        self.__camera = picamera.picamera(self.streaming_output)
+        self.preview_stream = streams.LatestByteBuffer()
+        self.__camera = camera.PiCamera(self.preview_stream)
         self.__resolution = None  # this is set by the start method
 
-        # self.__iso = iso
+        self.__iso = iso
         self.__exposure_time = exposure_time
         self.__exposure_mode = "normal"  # "auto"
         self.__white_balance = "off"
@@ -387,15 +387,14 @@ class ImagerProcess(multiprocessing.Process):
             # Reset the counter to 0
             self.__img_done = 0
             self.__imager.change(state_machine.Stop)
-            return
-        else:
-            # create the path!
-            os.makedirs(self.__export_path)
+
+        # create the path!
+        os.makedirs(self.__export_path)
 
         # Export the metadata to a json file
         loguru.logger.info("Exporting the metadata to a metadata.json")
         metadata_filepath = os.path.join(self.__export_path, "metadata.json")
-        with open(metadata_filepath, "w") as metadata_file:
+        with open(metadata_filepath, "w", encoding="utf-8") as metadata_file:
             json.dump(self.__global_metadata, metadata_file, indent=4)
             loguru.logger.debug(f"Metadata dumped in {metadata_file} are {self.__global_metadata}")
 
@@ -502,11 +501,8 @@ class ImagerProcess(multiprocessing.Process):
             self.__state_imaging()
             return
 
-        elif self.__imager.state.name == "capture":
+        if self.__imager.state.name == "capture":
             self.__state_capture()
-            return
-
-        elif self.__imager.state.name == ["waiting", "stop"]:
             return
 
     # TODO replicate the remaining methods of the initial imager
@@ -538,8 +534,8 @@ class ImagerProcess(multiprocessing.Process):
             )
 
             # Note(ethanjli): the camera must be started in the same process as anything which uses
-            # self.streaming_output, such as our StreamingHandler. This is because
-            # self.streaming_output does not synchronize state across independent processes!
+            # self.preview_stream, such as our StreamingHandler. This is because
+            # self.preview_stream does not synchronize state across independent processes!
             # TODO(ethanjli): it would be cleaner if we can start the camera and the StreamingServer
             # separately from the MQTT client; if it's possible, we can figure that out later.
             # TODO(W7CH): Start the video recording
@@ -549,12 +545,12 @@ class ImagerProcess(multiprocessing.Process):
             loguru.logger.exception(f"An exception has occured when starting up picamera2: {e}")
             try:
                 self.__camera.start(True)
-            except Exception as e:
+            except Exception as e_second:
                 loguru.logger.exception(
-                    f"A second exception has occured when starting up picamera2: {e}"
+                    f"A second exception has occured when starting up picamera2: {e_second}"
                 )
                 loguru.logger.error("This error can't be recovered from, terminating now")
-                raise e
+                raise e_second
 
         loguru.logger.info("Initialising the camera with the default settings...")
         # TODO identify the camera parameters that can be accessed and initialize them
@@ -568,27 +564,23 @@ class ImagerProcess(multiprocessing.Process):
         time.sleep(0.1)
         self.__camera.image_gain = self.__image_gain
 
-        """if self.__camera.sensor_name == "IMX219":  # Camera v2.1
-            self.__resolution = (3280, 2464)
-        elif self.__camera.sensor_name == "IMX477":  # Camera HQ
-            self.__resolution = (4056, 3040)
-        else:
-            self.__resolution = (1280, 1024)
-            loguru.logger.error(
-                f"The connected camera {self.__camera.sensor_name} is not recognized, "
-                + "please check your camera"
-            )"""
+        # if self.__camera.sensor_name == "IMX219":  # Camera v2.1
+        #     self.__resolution = (3280, 2464)
+        # elif self.__camera.sensor_name == "IMX477":  # Camera HQ
+        #     self.__resolution = (4056, 3040)
+        # else:
+        #     self.__resolution = (1280, 1024)
+        #     loguru.logger.error(
+        #         f"The connected camera {self.__camera.sensor_name} is not recognized, "
+        #         + "please check your camera"
+        #     )
 
         try:
             address = ("", 8000)
             fps = 15
             refresh_delay = 1 / fps
-            handler = functools.partial(
-                picam_streamer.StreamingHandler,
-                refresh_delay,
-                self.streaming_output,
-            )
-            server = picam_streamer.StreamingServer(address, handler)
+            handler = functools.partial(mjpeg.StreamingHandler, refresh_delay, self.preview_stream)
+            server = mjpeg.StreamingServer(address, handler)
             self.streaming_thread = threading.Thread(target=server.serve_forever, daemon=True)
             self.streaming_thread.start()
 

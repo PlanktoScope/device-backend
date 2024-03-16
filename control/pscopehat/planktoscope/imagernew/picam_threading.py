@@ -28,23 +28,22 @@ class PicamThread(threading.Thread):
         except Exception as e:
             loguru.logger.exception(f"An exception has occured when starting up picamera2: {e}")
             try:
-                self.__picam.start(True)
-            except Exception as e:
+                self.__picam.close()
+                self.__picam.start()
+            except Exception as e_second:
                 loguru.logger.exception(
-                    f"A second exception has occured when starting up picamera2: {e}"
+                    f"A second exception has occured when starting up picamera2: {e_second}"
                 )
                 loguru.logger.error("This error can't be recovered from, terminating now")
-                raise e
+                raise e_second
         try:
             while not self.stop_event.is_set():
-                """if not self.command_queue.empty():
-                try:
-                    # Retrieve a command from the queue with a timeout to avoid indefinite blocking
-                    command = self.command_queue.get(timeout=0.1)
-                except Exception as e:
-                    loguru.logger.exception(f"An error has occurred while handling a command: {e}")
-                """
-                pass
+                # if not self.command_queue.empty():
+                # try:
+                #    # Retrieve a command from the queue with a timeout to avoid indefinite blocking
+                #    command = self.command_queue.get(timeout=0.1)
+                # except Exception as e:
+                #    loguru.logger.exception(f"An error has occurred while handling a command: {e}")
                 time.sleep(0.01)
         finally:
             self.__picam.stop()

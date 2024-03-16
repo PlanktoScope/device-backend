@@ -1,79 +1,78 @@
-import time
+"""camera provides type-annotated hardware abstractions for Raspberry Pi cameras."""
 
-import libcamera
+import io
+import time
+import typing
+
+import libcamera  # type: ignore
 import loguru
-import picamera2
+import picamera2  # type: ignore
 from picamera2 import encoders, outputs
 
 
-class picamera:
-    """This class contains the main definitions of picamera2 monitoring the PlanktoScope's camera"""
+class PiCamera:
+    """A thread-safe wrapper around a picamera2-based camera.
 
-    def __init__(self, output):
-        """Initialize the picamera class
+    Attributes:
+        preview_dimensions: a 2-tuple consisting of the width and height (in units of pixels) of the
+          preview stream.
+    """
+
+    def __init__(self, preview_output: io.BufferedIOBase) -> None:
+        """Set up state needed to initialize the camera, but don't actually start the camera.
 
         Args:
-            output (picam_streamer.StreamingOutput): receive encoded video frames directly from the
-            encoder and forward them to network sockets
+            preview_output: an image stream which this `PiCamera` instance will write camera preview
+              images to.
         """
-        # Note(ethanjli): if we instantiate Picamera2 here in one process and then call the start
-        # method from a child process, then the start method's call of self.__picam.configure
-        # will block forever because we've basically duplicated the Picamera2 object when we forked
-        # into a child process. So instead we initialize self.__picam to None here, and we'll
-        # properly initialize self.__picam in the start method, which is called by a different
-        # process than the process which calls __init__.
-        self.__picam = None
-        self.__output = output
-        self.__sensor_name = ""
-        self.__width = None
-        self.__height = None
+        self._preview_output = preview_output
 
-    # TODO decide which stream to display (main, lores or raw)
-    def start(self, force=False):
-        self.__picam = picamera2.Picamera2()
-        loguru.logger.debug("Starting up picamera2")
-        if force:
-            # let's close the camera first
-            try:
-                self.close()
-            except Exception as e:
-                loguru.logger.exception(f"Closing picamera2 failed because of {e}")
+        # Note(ethanjli): `__init__()` may be called from a different process than the one which
+        # will call the `start()` method, so we must initialize `self._camera` to None here, and
+        # we'll properly initialize it in the `start()` method:
+        self._camera: typing.Optional[picamera2.Picamera2] = None
+        self._configurer: typing.Optional[Configurer] = None
+
+        self.preview_dimensions = (640, 480)
+
+    def start(self) -> None:
+        """Start the camera, including output to the preview stream."""
+        loguru.logger.debug("Starting the camera...")
+        self._camera = picamera2.Picamera2()
+        self._configurer = Configurer(self._camera)
 
         # Configure the camera with a video configuration for streaming video frames
-        half_resolution = [dim // 2 for dim in self.__picam.sensor_resolution]
-        main_stream = {"size": half_resolution}
-        lores_stream = {"size": (640, 480)}
+        main_stream = {"size": self._camera.sensor_resolution}
+        lores_stream = {"size": self.preview_dimensions}
         # Note(ethanjli): if we use "lores" as our encode argument, we must use the MJPEGEncoder
         # instead of JpegEncoder. This is because on the RPi4 the lores stream only outputs as
         # YUV420, but JpegEncoder only accepts RGB. By contrast, MJPEGEncoder can handle YUV420.
         # If we do need RGB output for something, we'll have to use the "main" stream instead of the
         # "lores" stream for that. For details, refer to Table 1 on page 59 of the picamera2 manual
         # at https://datasheets.raspberrypi.com/camera/picamera2-manual.pdf.
-        config = self.__picam.create_video_configuration(main_stream, lores_stream, encode="lores")
-        self.__picam.configure(config)
+        # TODO decide which stream to display (main, lores or raw)
+        config = self._camera.create_video_configuration(main_stream, lores_stream, encode="lores")
+        self._camera.configure(config)
 
-        # Extract camera properties from picamera2 instance
-        self.__sensor_name = self.__picam.camera_properties["Model"].upper()
-        self.__width = self.__picam.sensor_resolution[0]
-        self.__height = self.__picam.sensor_resolution[1]
-
-        # Start recording with video encoding and writing video frames
         # Note(ethanjli): see note above about JpegEncoder vs. MJPEGEncoder compatibility with
         # "lores" streams!
-        self.__picam.start_recording(
-            encoders.MJPEGEncoder(), outputs.FileOutput(self.__output), encoders.Quality.HIGH
+        self._camera.start_recording(
+            # FIXME(ethanjli): let's not use file output here!
+            encoders.MJPEGEncoder(),
+            outputs.FileOutput(self._preview_output),
+            encoders.Quality.HIGH,
         )
 
     # NOTE function drafted as a target of the camera thread (simple version)
     # def preview_picam(self):
     #     try:
-    #         self.__picam.start()
+    #         self._camera.start()
     #     except Exception as e:
     #         logger.exception(
     #             f"An exception has occured when starting up picamera2: {e}"
     #         )
     #         try:
-    #             self.__picam.start(True)
+    #             self._camera.start(True)
     #         except Exception as e:
     #             logger.exception(
     #                 f"A second exception has occured when starting up picamera2: {e}"
@@ -90,46 +89,83 @@ class picamera:
     #             pass
     #             time.sleep(0.01)
     #     finally:
-    #         self.__picam.stop()
-    #         self.__picam.close()
+    #         self._camera.stop()
+    #         self._camera.close()
+
+    # TODO capture images in full/high resolution "while the server is serving indefinitely"
+    def capture(self, path=""):
+        """Capture an image (in full resolution)
+
+        Args:
+            path (str, optional): Path to image file. Defaults to "".
+        """
+        loguru.logger.debug(f"Capturing an image to {path}")
+        # metadata = self._camera.capture_file(path) #use_video_port
+        request = self._camera.capture_request()
+        request.save("main", path)
+
+        time.sleep(0.1)
+        request.release()
+
+    def stop(self):
+        """Release the camera"""
+        loguru.logger.debug("Releasing the camera now")
+        self._camera.stop_preview()
+        self._camera.stop_recording()
+
+    def close(self):
+        """Close the camera"""
+        loguru.logger.debug("Closing the camera now")
+        self._camera.close()
+
+
+class Configurer:
+    def __init__(self, camera: picamera2.Picamera2) -> None:
+        """A wrapper to simplify setting and querying of camera settings."""
+        self._camera = camera
 
     @property
-    def sensor_name(self):
+    def sensor_name(self) -> str:
         """Sensor name of the connected camera
 
         Returns:
-            string: Sensor name. One of OV5647 (cam v1), IMX219 (cam v2.1), IMX477(ca HQ)
+            The name of the camera's sensor. One of: `OV5647` (original RPi Camera Module),
+            `IMX219` (RPi Camera Module 2), or `IMX477` (RPi High Quality Camera)
         """
-        return self.__sensor_name
+        return self._camera.camera_properties["Model"].upper()
 
     @property
-    def width(self):
-        return self.__width
+    def main_dimensions(self) -> tuple[int, int]:
+        return self._camera.sensor_resolution
 
+    # FIXME(ethanjli): does this actually return an int?
     @property
-    def height(self):
-        return self.__height
-
-    @property
-    def exposure_time(self):
-        return self.__exposure_time
+    def exposure_time(self) -> int:
+        with self._camera.controls as controls:
+            _, _, default = controls.ExposureTime
+            return default
 
     @exposure_time.setter
-    def exposure_time(self, exposure_time):
-        """Change the camera sensor exposure time (shutter speed) in microseconds
-        between 0 and 66666 (according to "camera_controls" property).
+    def exposure_time(self, exposure_time: int) -> None:
+        """Change the camera sensor exposure time.
 
         Args:
             exposure_time (int): exposure time in µs
+
+        Raises:
+            ValueError: if the provided exposure time is outside the allowed range
         """
-        loguru.logger.debug(f"Setting the exposure time to {exposure_time}")
-        if 0 < exposure_time < 66666:
-            self.__exposure_time = exposure_time
-            with self.__picam.controls as ctrls:
-                ctrls.ExposureTime = self.__exposure_time
-        else:
-            loguru.logger.error(f"The exposure time specified ({exposure_time}) is not valid")
-            raise ValueError
+        with self._camera.controls as controls:
+            min_value, max_value, _ = controls.ExposureTime
+            if exposure_time < min_value or exposure_time > max_value:
+                raise ValueError(
+                    f"Invalid exposure time ({exposure_time}) outside bounds: "
+                    + f"[{min_value}, {max_value}]"
+                )
+
+            loguru.logger.debug(f"Setting the exposure time to {exposure_time}...")
+            self._exposure_time = exposure_time
+            controls.ExposureTime = self._exposure_time
 
     @property
     def exposure_mode(self):
@@ -145,23 +181,22 @@ class picamera:
             mode (string): exposure mode to use
         """
         loguru.logger.debug(f"Setting the exposure mode to {mode}")
-        modes = {
+        EXPOSURE_MODES = {
             "off": False,
             "normal": libcamera.controls.AeExposureModeEnum.Normal,
             "short": libcamera.controls.AeExposureModeEnum.Short,
             "long": libcamera.controls.AeExposureModeEnum.Long,
         }
-        if mode in modes:
-            self.__exposure_mode = modes[mode]
-            if mode == "off":
-                self.__picam.set_controls({"AeEnable": self.__exposure_mode})
-            else:
-                self.__picam.set_controls(
-                    {"AeEnable": 1, "AeExposureMode": self.__exposure_mode}
-                )  # "AeEnable": 1,
-        else:
+        if mode not in EXPOSURE_MODES:
             loguru.logger.error(f"The exposure mode specified ({mode}) is not valid")
             raise ValueError
+
+        self.__exposure_mode = EXPOSURE_MODES[mode]
+        if mode == "off":
+            self._camera.set_controls({"AeEnable": self.__exposure_mode})
+            return
+
+        self._camera.set_controls({"AeEnable": 1, "AeExposureMode": self.__exposure_mode})
 
     @property
     def white_balance(self):
@@ -190,9 +225,9 @@ class picamera:
         if mode in modes:
             self.__white_balance = modes[mode]
             if mode == "off":
-                self.__picam.set_controls({"AwbEnable": self.__white_balance})
+                self._camera.set_controls({"AwbEnable": self.__white_balance})
             else:
-                self.__picam.set_controls(
+                self._camera.set_controls(
                     {"AwbEnable": 1, "AwbMode": self.__white_balance}
                 )  # "AwbEnable": 1,
         else:
@@ -216,8 +251,8 @@ class picamera:
         loguru.logger.debug(f"Setting the white balance gain to {gain}")
         if (0.0 <= gain[0] <= 32.0) and (0.0 <= gain[1] <= 32.0):
             self.__white_balance_gain = gain
-            with self.__picam.controls as ctrls:
-                ctrls.ColourGains = self.__white_balance_gain
+            with self._camera.controls as controls:
+                controls.ColourGains = self.__white_balance_gain
         else:
             loguru.logger.error(f"The camera white balance gain specified ({gain}) is not valid")
             raise ValueError
@@ -240,8 +275,8 @@ class picamera:
         loguru.logger.debug(f"Setting the analogue gain to {gain}")
         if 1.0 <= gain <= 16.0:
             self.__image_gain = gain
-            with self.__picam.controls as ctrls:
-                ctrls.AnalogueGain = self.__image_gain  # DigitalGain
+            with self._camera.controls as controls:
+                controls.AnalogueGain = self.__image_gain  # DigitalGain
         else:
             loguru.logger.error(f"The camera image gain specified ({gain}) is not valid")
             raise ValueError
@@ -260,7 +295,7 @@ class picamera:
         loguru.logger.debug(f"Setting image quality to {image_quality}")
         if 0 <= image_quality <= 100:
             self.__image_quality = image_quality
-            self.__picam.options["quality"] = self.__image_quality
+            self._camera.options["quality"] = self.__image_quality
         else:
             loguru.logger.error(
                 f"The output image quality specified ({image_quality}) is not valid"
@@ -268,29 +303,3 @@ class picamera:
             raise ValueError
 
     # TODO complete (if needed) the setters and getters of resolution & iso
-
-    # TODO capture images in full/high resolution "while the server is serving indefinitely"
-    def capture(self, path=""):
-        """Capture an image (in full resolution)
-
-        Args:
-            path (str, optional): Path to image file. Defaults to "".
-        """
-        loguru.logger.debug(f"Capturing an image to {path}")
-        # metadata = self.__picam.capture_file(path) #use_video_port
-        request = self.__picam.capture_request()
-        request.save("main", path)
-
-        time.sleep(0.1)
-        request.release()
-
-    def stop(self):
-        """Release the camera"""
-        loguru.logger.debug("Releasing the camera now")
-        self.__picam.stop_preview()
-        self.__picam.stop_recording()
-
-    def close(self):
-        """Close the camera"""
-        loguru.logger.debug("Closing the camera now")
-        self.__picam.close()
