@@ -40,6 +40,7 @@ jobs:
 
       - name: Install build dependencies
         run: |
+          sudo apt-get install -y libcap-dev
           poetry -C ./control/ install --with dev --no-root
 
       - name: Run checks
