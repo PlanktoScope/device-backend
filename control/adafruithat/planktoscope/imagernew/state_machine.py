@@ -1,5 +1,4 @@
-# Logger library compatible with multiprocessing
-from loguru import logger
+import loguru
 
 # TODO rewrite this in PlantUML
 # This works with https://www.diagram.codes/d/state-machine
@@ -24,10 +23,10 @@ class ImagerState(object):
     def switch(self, state):
         """Switch to new state"""
         if state.name in self.allowed:
-            logger.info(f"Current:{self} => switched to new state {state.name}")
+            loguru.logger.info(f"Current:{self} => switched to new state {state.name}")
             self.__class__ = state
         else:
-            logger.error(f"Current:{self} => switching to {state.name} not possible.")
+            loguru.logger.error(f"Current:{self} => switching to {state.name} not possible.")
 
     def __str__(self):
         return self.name

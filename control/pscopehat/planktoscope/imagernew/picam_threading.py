@@ -1,7 +1,7 @@
 import threading
 import time
 
-from loguru import logger
+import loguru
 
 
 class PicamThread(threading.Thread):
@@ -21,17 +21,19 @@ class PicamThread(threading.Thread):
         self.command_queue = command_queue  # FIXME remove the queue for now if not used
         self.stop_event = stop_event
 
-    @logger.catch
+    @loguru.logger.catch
     def run(self):
         try:
             self.__picam.start()
         except Exception as e:
-            logger.exception(f"An exception has occured when starting up picamera2: {e}")
+            loguru.logger.exception(f"An exception has occured when starting up picamera2: {e}")
             try:
                 self.__picam.start(True)
             except Exception as e:
-                logger.exception(f"A second exception has occured when starting up picamera2: {e}")
-                logger.error("This error can't be recovered from, terminating now")
+                loguru.logger.exception(
+                    f"A second exception has occured when starting up picamera2: {e}"
+                )
+                loguru.logger.error("This error can't be recovered from, terminating now")
                 raise e
         try:
             while not self.stop_event.is_set():
@@ -40,7 +42,7 @@ class PicamThread(threading.Thread):
                     # Retrieve a command from the queue with a timeout to avoid indefinite blocking
                     command = self.command_queue.get(timeout=0.1)
                 except Exception as e:
-                    logger.exception(f"An error has occurred while handling a command: {e}")
+                    loguru.logger.exception(f"An error has occurred while handling a command: {e}")
                 """
                 pass
                 time.sleep(0.01)

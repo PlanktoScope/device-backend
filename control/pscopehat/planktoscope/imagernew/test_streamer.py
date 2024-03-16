@@ -1,15 +1,14 @@
 import functools
 
-from picamera2 import Picamera2
-from picamera2.encoders import MJPEGEncoder
-from picamera2.outputs import FileOutput
+import picamera2
+from picamera2 import encoders, outputs
 
 import planktoscope.imagernew.picam_streamer as stream
 
-picam2 = Picamera2()
+picam2 = picamera2.Picamera2()
 picam2.configure(picam2.create_video_configuration(main={"size": (640, 480)}))
 streaming_output = stream.StreamingOutput()
-picam2.start_recording(MJPEGEncoder(), FileOutput(streaming_output))
+picam2.start_recording(encoders.MJPEGEncoder(), outputs.FileOutput(streaming_output))
 
 try:
     address = ("", 8000)

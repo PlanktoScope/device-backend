@@ -1,10 +1,10 @@
-import http.server
 import io
 import socketserver
+import threading
 import time
-from threading import Condition
+from http import server
 
-from loguru import logger
+import loguru
 
 
 ################################################################################
@@ -13,7 +13,7 @@ from loguru import logger
 class StreamingOutput(io.BufferedIOBase):
     def __init__(self):
         self.frame = None
-        self.condition = Condition()
+        self.condition = threading.Condition()
 
     def write(self, buf):
         with self.condition:
@@ -21,13 +21,13 @@ class StreamingOutput(io.BufferedIOBase):
             self.condition.notify_all()
 
 
-class StreamingHandler(http.server.BaseHTTPRequestHandler):
+class StreamingHandler(server.BaseHTTPRequestHandler):
     def __init__(self, delay, output, *args, **kwargs):
         self.delay = delay
         self.output = output
         super(StreamingHandler, self).__init__(*args, **kwargs)
 
-    @logger.catch
+    @loguru.logger.catch
     def do_GET(self):
         if self.path == "/":
             self.send_response(301)
@@ -48,7 +48,7 @@ class StreamingHandler(http.server.BaseHTTPRequestHandler):
                             self.output.condition.wait()
                             frame = self.output.frame
                     except Exception as e:
-                        logger.exception(f"An exception occured {e}")
+                        loguru.logger.exception(f"An exception occured {e}")
                     else:
                         self.wfile.write(b"--FRAME\r\n")
                         self.send_header("Content-Type", "image/jpeg")
@@ -59,12 +59,12 @@ class StreamingHandler(http.server.BaseHTTPRequestHandler):
                         time.sleep(self.delay)
 
             except Exception:
-                logger.info("Removed streaming client")
+                loguru.logger.info("Removed streaming client")
         else:
             self.send_error(404)
             self.end_headers()
 
 
-class StreamingServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
     allow_reuse_address = True
     daemon_threads = True
