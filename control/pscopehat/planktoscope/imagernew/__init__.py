@@ -59,8 +59,8 @@ class ImagerProcess(multiprocessing.Process):
 
         # self.__iso = iso
         self.__exposure_time = exposure_time
-        self.__exposure_mode = "normal"  # "auto"
-        self.__white_balance = "off"
+        self.__exposure_mode: camera.ExposureModes = "normal"  # FIXME(ethanjli): default to "off"?
+        self.__white_balance_mode: camera.WhiteBalanceModes = "off"
         self.__white_balance_gain = (
             configuration.get("red_gain", 2.00),
             configuration.get("blue_gain", 1.40),
@@ -218,34 +218,27 @@ class ImagerProcess(multiprocessing.Process):
         if self.__camera.controls is None:
             raise RuntimeError("Camera has not started yet")
 
+        # FIXME: use normal white-balance gains instead of the gains which are multiplied by 100 in
+        # the MQTT API
+
         if "red" in settings["white_balance_gain"]:
-            loguru.logger.debug(
-                "Updating the camera white balance red gain to "
-                + f"{settings['white_balance_gain']}"
-            )
-            self.__white_balance_gain = (
-                settings["white_balance_gain"].get("red", self.__white_balance_gain[0]),
-                self.__white_balance_gain[1],
-            )
+            red_gain = settings["white_balance_gain"]["red"] / 100
+            loguru.logger.debug(f"Updating the camera white balance red gain to {red_gain}")
+            self.__white_balance_gain = (red_gain, self.__white_balance_gain[1])
         if "blue" in settings["white_balance_gain"]:
-            loguru.logger.debug(
-                "Updating the camera white balance blue gain to "
-                + f"{settings['white_balance_gain']}"
-            )
-            self.__white_balance_gain = (
-                self.__white_balance_gain[0],
-                settings["white_balance_gain"].get("blue", self.__white_balance_gain[1]),
-            )
+            blue_gain = settings["white_balance_gain"]["blue"] / 100
+            loguru.logger.debug(f"Updating the camera white balance blue gain to {blue_gain}")
+            self.__white_balance_gain = (self.__white_balance_gain[0], blue_gain)
         loguru.logger.debug(
             f"Updating the camera white balance gain to {self.__white_balance_gain}"
         )
         try:
-            self.__camera.controls.white_balance_gain = self.__white_balance_gain
+            self.__camera.controls.white_balance_gains = self.__white_balance_gain
         except TimeoutError:
             loguru.logger.error(
                 "A timeout has occured when setting the white balance gain, trying again"
             )
-            self.__camera.controls.white_balance_gain = self.__white_balance_gain
+            self.__camera.controls.white_balance_gains = self.__white_balance_gain
         except ValueError as e:
             loguru.logger.error("The requested white balance gain is not valid!")
             self.imager_client.client.publish(
@@ -263,20 +256,22 @@ class ImagerProcess(multiprocessing.Process):
         loguru.logger.debug(
             f"Updating the camera white balance mode to {settings['white_balance']}"
         )
-        self.__white_balance = settings.get("white_balance", self.__white_balance)
-        loguru.logger.debug(f"Updating the camera white balance mode to {self.__white_balance}")
+        self.__white_balance_mode = settings.get("white_balance", self.__white_balance_mode)
+        loguru.logger.debug(
+            f"Updating the camera white balance mode to {self.__white_balance_mode}"
+        )
         try:
-            self.__camera.controls.white_balance = self.__white_balance
+            self.__camera.controls.white_balance_mode = self.__white_balance_mode
         except TimeoutError:
             loguru.logger.error(
                 "A timeout has occured when setting the white balance, trying again"
             )
-            self.__camera.controls.white_balance = self.__white_balance
+            self.__camera.controls.white_balance_mode = self.__white_balance_mode
         except ValueError as e:
             loguru.logger.error("The requested white balance is not valid!")
             self.imager_client.client.publish(
                 "status/imager",
-                f'{"status":"Error: Invalid white balance mode {self.__white_balance}"}',
+                f'{"status":"Error: Invalid white balance mode {self.__white_balance_mode}"}',
             )
             raise e
 
@@ -313,49 +308,64 @@ class ImagerProcess(multiprocessing.Process):
         if self.imager_client is None:
             raise RuntimeError("Imager MQTT client is not running yet")
 
-        action = ""
         loguru.logger.info("We received a new message")
+        if self.imager_client.msg["topic"] == "status/pump":
+            self._receive_pump_status()
+            self.imager_client.read_message()
+            return
+
         if self.imager_client.msg["topic"].startswith("imager/"):
-            last_message = self.imager_client.msg["payload"]
-            loguru.logger.debug(last_message)
-            action = self.imager_client.msg["payload"]["action"]
-            loguru.logger.debug(action)
-        elif self.imager_client.msg["topic"] == "status/pump":
-            loguru.logger.debug(f"Status message payload is {self.imager_client.msg['payload']}")
-            if self.__imager.state.name == "waiting":
-                if self.imager_client.msg["payload"]["status"] == "Done":
-                    self.__imager.change(state_machine.Capture)
-                    self.imager_client.client.unsubscribe("status/pump")
-                else:
-                    loguru.logger.info(
-                        f"The pump is not done yet {self.imager_client.msg['payload']}"
-                    )
-            else:
-                loguru.logger.error("There is an error, we received an unexpected pump message")
-        else:
-            loguru.logger.error(
-                f"The received message was not for us! Topic was {self.imager_client.msg['topic']}"
-            )
+            self._receive_imager_command()
+            self.imager_client.read_message()
+            return
+
+        loguru.logger.error(
+            f"The received message was not for us! Topic was {self.imager_client.msg['topic']}"
+        )
         self.imager_client.read_message()
 
-        # If the command is "image"
+    def _receive_pump_status(self):
+        if self.imager_client is None:
+            raise RuntimeError("Imager MQTT client is not running yet")
+
+        loguru.logger.debug(f"Status message payload is {self.imager_client.msg['payload']}")
+        if self.__imager.state.name != "waiting":
+            loguru.logger.error("There is an error, we received an unexpected pump message")
+            return
+
+        if self.imager_client.msg["payload"]["status"] == "Done":
+            self.__imager.change(state_machine.Capture)
+            self.imager_client.client.unsubscribe("status/pump")
+        else:
+            loguru.logger.info(f"The pump is not done yet {self.imager_client.msg['payload']}")
+
+    def _receive_imager_command(self):
+        if self.imager_client is None:
+            raise RuntimeError("Imager MQTT client is not running yet")
+
+        last_message = self.imager_client.msg["payload"]
+        loguru.logger.debug(last_message)
+        action = self.imager_client.msg["payload"]["action"]
+        loguru.logger.debug(action)
+
         if action == "image":
             # {"action":"image","sleep":5,"volume":1,"nb_frame":200}
             self.__message_image(last_message)
-
-        elif action == "stop":
+            return
+        if action == "stop":
             self.__message_stop()
-
-        elif action == "update_config":
+            return
+        if action == "update_config":
             self.__message_update(last_message)
-
-        elif action == "settings":
+            return
+        if action == "settings":
             self.__message_settings(last_message)
-
-        elif action not in ["image", "stop", "update_config", "settings", ""]:
-            loguru.logger.warning(
-                f"We did not understand the received request {action} - {last_message}"
-            )
+            return
+        if action == "":  # FIXME(ethanjli): is this case really needed?
+            return
+        loguru.logger.warning(
+            f"We did not understand the received request ({action}): {last_message}"
+        )
 
     # copied #
     def __pump_message(self):
@@ -599,9 +609,9 @@ class ImagerProcess(multiprocessing.Process):
         time.sleep(0.1)
         self.__camera.controls.exposure_mode = self.__exposure_mode
         time.sleep(0.1)
-        self.__camera.controls.white_balance = self.__white_balance
+        self.__camera.controls.white_balance_mode = self.__white_balance_mode
         time.sleep(0.1)
-        self.__camera.controls.white_balance_gain = self.__white_balance_gain
+        self.__camera.controls.white_balance_gains = self.__white_balance_gain
         time.sleep(0.1)
         self.__camera.controls.image_gain = self.__image_gain
 

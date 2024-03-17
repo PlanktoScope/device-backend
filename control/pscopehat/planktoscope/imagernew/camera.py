@@ -129,8 +129,19 @@ class PiCamera:
         request.release()  # pylint: disable=no-member
 
 
+ExposureModes = typing.Literal["off", "normal", "short", "long"]
+WhiteBalanceModes = typing.Literal[
+    "off", "auto", "tungsten", "fluorescent", "indoor", "daylight", "cloudy"
+]
+
+
 class Controls:
     """A wrapper to simplify setting and querying of camera controls & properties."""
+
+    # pylint: disable=too-many-instance-attributes
+    # The alternative to having a bunch of instance attributes would be to just do things via dicts,
+    # which would lead to a smaller class but would make it impossible to get help from the type
+    # checker.
 
     def __init__(self, camera: picamera2.Picamera2, exposure_range: tuple[int, int]) -> None:
         """Initialize the camera controls.
@@ -139,11 +150,14 @@ class Controls:
             exposure_range: the minimum and maximum allowed exposure duration values.
         """
         self._camera = camera
-        self._exposure_range = exposure_range
+        self._exposure_range: typing.Final[tuple[int, int]] = exposure_range
 
         # Cached values
         self._cache_lock = rwlock.RWLockWrite()
         self._exposure_time: typing.Optional[int] = None
+        self._exposure_mode: ExposureModes = "off"
+        self._white_balance_mode: WhiteBalanceModes = "off"
+        self._image_gain: typing.Optional[float] = None
 
     # Note: self._camera.controls is thread-safe because it has its own internal threading.Lock()
     # instance. However, if we store any state in Controls, then we should add a reader-writer lock
@@ -161,12 +175,10 @@ class Controls:
         assert isinstance(model, str)
         return model.upper()
 
-    # FIXME(ethanjli): does this actually return an int?
     @property
     def exposure_time(self) -> typing.Optional[int]:
+        """Return the last exposure time which was set."""
         with self._cache_lock.gen_rlock():
-            # TODO: check whether we need to track this as internal state, vs. reading the default
-            # value
             return self._exposure_time
 
     @exposure_time.setter
@@ -191,53 +203,51 @@ class Controls:
             self._camera.controls.ExposureTime = self._exposure_time
 
     @property
-    def exposure_mode(self):
-        return self.__exposure_mode
+    def exposure_mode(self) -> ExposureModes:
+        """Return the last exposure mode which was set."""
+        return self._exposure_mode
 
     @exposure_mode.setter
-    def exposure_mode(self, mode):
-        """Change the camera exposure mode
-
-        Is one of off, normal, short, long
+    def exposure_mode(self, mode: ExposureModes) -> None:
+        """Change the camera exposure mode.
 
         Args:
-            mode (string): exposure mode to use
+            mode: exposure mode to use.
         """
         loguru.logger.debug(f"Setting the exposure mode to {mode}")
-        EXPOSURE_MODES = {
-            "off": False,
+
+        self._exposure_mode = mode
+        if mode == "off":
+            self._camera.set_controls({"AeEnable": False})
+            return
+
+        modes = {
             "normal": libcamera.controls.AeExposureModeEnum.Normal,
             "short": libcamera.controls.AeExposureModeEnum.Short,
             "long": libcamera.controls.AeExposureModeEnum.Long,
         }
-        if mode not in EXPOSURE_MODES:
-            loguru.logger.error(f"The exposure mode specified ({mode}) is not valid")
-            raise ValueError
-
-        self.__exposure_mode = EXPOSURE_MODES[mode]
-        if mode == "off":
-            self._camera.set_controls({"AeEnable": self.__exposure_mode})
-            return
-
-        self._camera.set_controls({"AeEnable": 1, "AeExposureMode": self.__exposure_mode})
+        self._camera.set_controls({"AeEnable": 1, "AeExposureMode": modes[mode]})
 
     @property
-    def white_balance(self):
-        return self.__white_balance
+    def white_balance_mode(self) -> WhiteBalanceModes:
+        """Return the last white balance mode which was set."""
+        return self._white_balance_mode
 
-    @white_balance.setter
-    def white_balance(self, mode):
-        """Change the camera white balance mode
-
-        Is one of off, auto, tungsten, fluorescent,
-        indoor, daylight, cloudy
+    @white_balance_mode.setter
+    def white_balance_mode(self, mode: WhiteBalanceModes) -> None:
+        """Change the white balance mode.
 
         Args:
-            mode (string): white balance mode to use
+            mode: white balance mode to use.
         """
         loguru.logger.debug(f"Setting the white balance mode to {mode}")
+
+        self._white_balance_mode = mode
+        if mode == "off":
+            self._camera.set_controls({"AwbEnable": False})
+            return
+
         modes = {
-            "off": False,
             "auto": libcamera.controls.AwbModeEnum.Auto,
             "tungsten": libcamera.controls.AwbModeEnum.Tungsten,
             "fluorescent": libcamera.controls.AwbModeEnum.Fluorescent,
@@ -245,47 +255,42 @@ class Controls:
             "daylight": libcamera.controls.AwbModeEnum.Daylight,
             "cloudy": libcamera.controls.AwbModeEnum.Cloudy,
         }
-        if mode in modes:
-            self.__white_balance = modes[mode]
-            if mode == "off":
-                self._camera.set_controls({"AwbEnable": self.__white_balance})
-            else:
-                self._camera.set_controls(
-                    {"AwbEnable": 1, "AwbMode": self.__white_balance}
-                )  # "AwbEnable": 1,
-        else:
-            loguru.logger.error(f"The camera white balance mode specified ({mode}) is not valid")
-            raise ValueError
+        self._camera.set_controls({"AwbEnable": True, "AwbMode": modes[mode]})
 
     @property
-    def white_balance_gain(self):
-        return self.__white_balance_gain
+    def white_balance_gains(self) -> tuple[float, float]:
+        """Return the last white balance gains which were set."""
+        red_gain, blue_gain = self._camera.controls.ColourGains
+        assert isinstance(red_gain, float)
+        assert isinstance(blue_gain, float)
+        return red_gain, blue_gain
 
-    @white_balance_gain.setter
-    def white_balance_gain(self, gain):
-        """Change the camera white balance gain
-
-            The gain value should be a floating point number between 0.0 and 32.0 for
-            the red and the blue gain.
+    @white_balance_gains.setter
+    def white_balance_gains(self, gains: tuple[float, float]) -> None:
+        """Change the white balance gains.
 
         Args:
-            gain (tuple of float): Red gain and blue gain to use
+            gains: red and blue gains, each between 0.0 and 32.0.
         """
-        loguru.logger.debug(f"Setting the white balance gain to {gain}")
-        if (0.0 <= gain[0] <= 32.0) and (0.0 <= gain[1] <= 32.0):
-            self.__white_balance_gain = gain
-            self._camera.controls.ColourGains = self.__white_balance_gain
-        else:
-            loguru.logger.error(f"The camera white balance gain specified ({gain}) is not valid")
-            raise ValueError
+        loguru.logger.debug(f"Setting the white balance gain to {gains}")
+        red_gain, blue_gain = gains
+        min_gain, max_gain = 0.0, 32.0
+        if not (min_gain <= red_gain <= max_gain and min_gain <= blue_gain <= max_gain):
+            raise ValueError(
+                f"Invalid white balance gains (red {red_gain}, blue {blue_gain}) "
+                + f"outside bounds: [{min_gain}, {max_gain}]"
+            )
+
+        self._camera.controls.ColourGains = gains
 
     @property
-    def image_gain(self):
-        return self.__image_gain
+    def image_gain(self) -> typing.Optional[float]:
+        """Return the last image gain (analog gain + digital gain) which was set."""
+        return self._image_gain
 
     @image_gain.setter
-    def image_gain(self, gain):
-        """Change the camera image gain
+    def image_gain(self, gain: float) -> None:
+        """Change the image gain.
 
             The camera image gain value should be a floating point number between 1.0 and 16.0
             for the analog gain and the digital gain (used automatically when the sensor’s
@@ -295,12 +300,14 @@ class Controls:
             gain (float): Image gain to use
         """
         loguru.logger.debug(f"Setting the analogue gain to {gain}")
-        if 1.0 <= gain <= 16.0:
-            self.__image_gain = gain
-            self._camera.controls.AnalogueGain = self.__image_gain  # DigitalGain
-        else:
-            loguru.logger.error(f"The camera image gain specified ({gain}) is not valid")
-            raise ValueError
+        min_gain, max_gain = 1.0, 16.0
+        if not min_gain <= gain <= max_gain:
+            raise ValueError(
+                f"Invalid image gain ({gain}) outside bounds: [{min_gain}, {max_gain}]"
+            )
+
+        self._image_gain = gain
+        self._camera.controls.AnalogueGain = self._image_gain  # DigitalGain
 
     # TODO(ethanjli): Delete this if we actually don't need it:
     # @property

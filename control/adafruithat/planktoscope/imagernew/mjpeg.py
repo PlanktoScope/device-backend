@@ -26,10 +26,10 @@ class _StreamingHandler(server.BaseHTTPRequestHandler):
         latest_frame: ByteBufferStream,
         request: typing.Union[socket.socket, tuple[bytes, socket.socket]],
         client_address: tuple[str, int],
-        server: socketserver.BaseServer,
+        server_: socketserver.BaseServer,
     ) -> None:
         self.latest_frame = latest_frame
-        super().__init__(request, client_address, server)
+        super().__init__(request, client_address, server_)
 
     @loguru.logger.catch
     # pylint: disable-next=invalid-name
@@ -51,8 +51,7 @@ class _StreamingHandler(server.BaseHTTPRequestHandler):
             try:
                 while True:
                     self.latest_frame.wait_next()
-                    frame = self.latest_frame.get()
-                    if frame is None:
+                    if (frame := self.latest_frame.get()) is None:
                         continue
                     self._send_mjpeg_frame(frame)
             except BrokenPipeError:
