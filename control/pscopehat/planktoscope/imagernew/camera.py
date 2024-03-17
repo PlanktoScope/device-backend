@@ -12,6 +12,123 @@ from picamera2 import encoders, outputs
 from readerwriterlock import rwlock
 
 
+class PiCamera:
+    """A thread-safe wrapper around a picamera2-based camera.
+
+    Attributes:
+        controls: a [Controls] instance associated with the camera. Uninitialized until the
+          `start()` method is called.
+    """
+
+    def __init__(
+        self,
+        preview_output: io.BufferedIOBase,
+        preview_size=(640, 480),
+        preview_bitrate: typing.Optional[int] = None,
+    ) -> None:
+        """Set up state needed to initialize the camera, but don't actually start the camera.
+
+        Args:
+            preview_output: an image stream which this `PiCamera` instance will write camera preview
+              images to.
+            preview_size: the width and height (in pixels) of the camera preview.
+            preview_bitrate: the bitrate of the preview stream; defaults to a bitrate for a medium
+              quality stream.
+        """
+        self.controls: typing.Optional[Controls] = None
+
+        self._preview_output = preview_output
+        # Note(ethanjli): `__init__()` may be called from a different process than the one which
+        # will call the `start()` method, so we must initialize `self._camera` to None here, and
+        # we'll properly initialize it in the `start()` method:
+        self._camera: typing.Optional[picamera2.Picamera2] = None
+
+        # TODO(ethanjli): Delete these if we actually don't need them:
+        # self._main_format: typing.Optional[str] = None
+        # self._main_size: typing.Optional[tuple[int, int]] = None
+        self._preview_size: tuple[int, int] = preview_size
+        self._preview_bitrate: typing.Optional[int] = preview_bitrate
+
+    def open(self) -> None:
+        """Start the camera in the background, including output to the preview stream."""
+        loguru.logger.debug("Configuring the camera...")
+        self._camera = picamera2.Picamera2()
+
+        # We use the `create_still_configuration` to get the best defaults for still images from the
+        # "main" stream:
+        config = self._camera.create_still_configuration(
+            main={"size": self._camera.sensor_resolution},
+            lores={"size": self._preview_size},
+            # We need at least three buffers to allow the preview to continue receiving frames
+            # smoothly from the lores stream while a buffer is reserved for saving an image from
+            # the main stream:
+            buffer_count=3,
+        )
+        loguru.logger.debug(f"Camera configuration: {config}")
+        # TODO(ethanjli): Delete these if we actually don't need them:
+        # self._main_format = config["main"]["format"]
+        # self._main_size = config["main"]["size"]
+        # self._preview_size = config["preview"]["size"]
+        self._camera.configure(config)
+
+        self.controls = Controls(self._camera)
+
+        loguru.logger.debug("Starting the camera...")
+        self._camera.start_recording(
+            # For compatibility with the RPi4 (which must use YUV420 for lores stream output), we
+            # cannot use JpegEncoder (which only accepts RGB, not YUV); for details, refer to Table
+            # 1 on page 59 of the picamera2 manual. So we must use MJPEGEncoder instead:
+            encoders.MJPEGEncoder(bitrate=self._preview_bitrate),
+            outputs.FileOutput(self._preview_output),
+            quality=encoders.Quality.HIGH,
+            name="lores",
+        )
+
+    def close(self) -> None:
+        """Stop and close the camera.
+
+        The camera can be restarted after being closed by `start()` method again.
+        """
+        if self._camera is None:
+            return
+
+        loguru.logger.debug("Stopping the camera...")
+        self._camera.stop_recording()
+
+        loguru.logger.debug("Closing the camera...")
+        self._camera.close()
+        self._camera = None
+        self.controls = None
+
+    def capture_file(self, path: str) -> None:
+        """Capture an image from the main stream (in full resolution) and save it as a file.
+
+        Blocks until the image is fully saved.
+
+        Args:
+            path: The file path where the image should be saved.
+
+        Raises:
+            RuntimeError: the method was called before the camera was started, or after it was
+              closed.
+        """
+        if self._camera is None:
+            raise RuntimeError(
+                "The camera must be configured with the `configure` method before it can be used to"
+                + "capture images"
+            )
+
+        loguru.logger.debug(f"Capturing and saving image to {path}...")
+        request = self._camera.capture_request()
+        # The following lines are false-positives in pylint because they're dynamically-generated
+        # members:
+        request.save("main", path)  # pylint: disable=no-member
+        loguru.logger.debug(
+            f"Image metadata: {request.get_metadata()}"  # pylint: disable=no-member
+        )
+        request.release()  # pylint: disable=no-member
+
+
 class Controls:
     """A wrapper to simplify setting and querying of camera controls & properties."""
 
@@ -210,123 +327,6 @@ class Controls:
     #         raise ValueError
 
     # TODO complete (if needed) the setters and getters of resolution & iso
-
-
-class PiCamera:
-    """A thread-safe wrapper around a picamera2-based camera.
-
-    Attributes:
-        controls: a [Controls] instance associated with the camera. Uninitialized until the
-          `start()` method is called.
-    """
-
-    def __init__(
-        self,
-        preview_output: io.BufferedIOBase,
-        preview_size=(640, 480),
-        preview_bitrate: typing.Optional[int] = None,
-    ) -> None:
-        """Set up state needed to initialize the camera, but don't actually start the camera.
-
-        Args:
-            preview_output: an image stream which this `PiCamera` instance will write camera preview
-              images to.
-            preview_size: the width and height (in pixels) of the camera preview.
-            preview_bitrate: the bitrate of the preview stream; defaults to a bitrate for a medium
-              quality stream.
-        """
-        self.controls: typing.Optional[Controls] = None
-
-        self._preview_output = preview_output
-        # Note(ethanjli): `__init__()` may be called from a different process than the one which
-        # will call the `start()` method, so we must initialize `self._camera` to None here, and
-        # we'll properly initialize it in the `start()` method:
-        self._camera: typing.Optional[picamera2.Picamera2] = None
-
-        # TODO(ethanjli): Delete these if we actually don't need them:
-        # self._main_format: typing.Optional[str] = None
-        # self._main_size: typing.Optional[tuple[int, int]] = None
-        self._preview_size: tuple[int, int] = preview_size
-        self._preview_bitrate: typing.Optional[int] = preview_bitrate
-
-    def open(self) -> None:
-        """Start the camera in the background, including output to the preview stream."""
-        loguru.logger.debug("Configuring the camera...")
-        self._camera = picamera2.Picamera2()
-
-        # We use the `create_still_configuration` to get the best defaults for still images from the
-        # "main" stream:
-        config = self._camera.create_still_configuration(
-            main={"size": self._camera.sensor_resolution},
-            lores={"size": self._preview_size},
-            # We need at least three buffers to allow the preview to continue receiving frames
-            # smoothly from the lores stream while a buffer is reserved for saving an image from
-            # the main stream:
-            buffer_count=3,
-        )
-        loguru.logger.debug(f"Camera configuration: {config}")
-        # TODO(ethanjli): Delete these if we actually don't need them:
-        # self._main_format = config["main"]["format"]
-        # self._main_size = config["main"]["size"]
-        # self._preview_size = config["preview"]["size"]
-        self._camera.configure(config)
-
-        self.controls = Controls(self._camera)
-
-        loguru.logger.debug("Starting the camera...")
-        self._camera.start_recording(
-            # For compatibility with the RPi4 (which must use YUV420 for lores stream output), we
-            # cannot use JpegEncoder (which only accepts RGB, not YUV); for details, refer to Table
-            # 1 on page 59 of the picamera2 manual. So we must use MJPEGEncoder instead:
-            encoders.MJPEGEncoder(bitrate=self._preview_bitrate),
-            outputs.FileOutput(self._preview_output),
-            quality=encoders.Quality.HIGH,
-            name="lores",
-        )
-
-    def close(self) -> None:
-        """Stop and close the camera.
-
-        The camera can be restarted after being closed by `start()` method again.
-        """
-        if self._camera is None:
-            return
-
-        loguru.logger.debug("Stopping the camera...")
-        self._camera.stop_recording()
-
-        loguru.logger.debug("Closing the camera...")
-        self._camera.close()
-        self._camera = None
-        self.controls = None
-
-    def capture_file(self, path: str) -> None:
-        """Capture an image from the main stream (in full resolution) and save it as a file.
-
-        Blocks until the image is fully saved.
-
-        Args:
-            path: The file path where the image should be saved.
-
-        Raises:
-            RuntimeError: the method was called before the camera was started, or after it was
-              closed.
-        """
-        if self._camera is None:
-            raise RuntimeError(
-                "The camera must be configured with the `configure` method before it can be used to"
-                + "capture images"
-            )
-
-        loguru.logger.debug(f"Capturing and saving image to {path}...")
-        request = self._camera.capture_request()
-        # The following lines are false-positives in pylint because they're dynamically-generated
-        # members:
-        request.save("main", path)  # pylint: disable=no-member
-        loguru.logger.debug(
-            f"Image metadata: {request.get_metadata()}"  # pylint: disable=no-member
-        )
-        request.release()  # pylint: disable=no-member
 
 
 class PreviewStream(io.BufferedIOBase):
