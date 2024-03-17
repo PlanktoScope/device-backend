@@ -213,8 +213,8 @@ class PiCamera:
     """A thread-safe wrapper around a picamera2-based camera.
 
     Attributes:
-        preview_size: a 2-tuple consisting of the width and height (in units of pixels) of the
-          preview stream.
+        controls: a [Controls] instance associated with the camera. Uninitialized until the
+          `start()` method is called.
     """
 
     def __init__(
@@ -232,8 +232,9 @@ class PiCamera:
             preview_bitrate: the bitrate of the preview stream; defaults to a bitrate for a medium
               quality stream.
         """
-        self._preview_output = preview_output
+        self.controls: typing.Optional[Controls] = None
 
+        self._preview_output = preview_output
         # Note(ethanjli): `__init__()` may be called from a different process than the one which
         # will call the `start()` method, so we must initialize `self._camera` to None here, and
         # we'll properly initialize it in the `start()` method:
@@ -241,20 +242,12 @@ class PiCamera:
 
         # TODO(ethanjli): Delete these if we actually don't need them:
         # self._main_format: typing.Optional[str] = None
-        self._controls: typing.Optional[Controls] = None
         # self._main_size: typing.Optional[tuple[int, int]] = None
         self._preview_size: tuple[int, int] = preview_size
         self._preview_bitrate: typing.Optional[int] = preview_bitrate
 
-    def configure(self) -> None:
-        """Configure the camera so that it can be started.
-
-        This must not be called from a different process than the one which will call the
-        `start()` method!
-
-        Camera controls can be adjusted after this method returns, even before the `start()` method
-        is called.
-        """
+    def start(self) -> None:
+        """Start the camera in the background, including output to the preview stream."""
         loguru.logger.debug("Configuring the camera...")
         self._camera = picamera2.Picamera2()
 
@@ -275,18 +268,7 @@ class PiCamera:
         # self._preview_size = config["preview"]["size"]
         self._camera.configure(config)
 
-        self._controls = Controls(self._camera)
-
-    def start(self) -> None:
-        """Start the camera in the background, including output to the preview stream.
-
-        This must not be called from a different process than the one which called the
-        `configure()` method!
-        """
-        if self._camera is None:
-            raise RuntimeError(
-                "The camera must be configured with the `configure` method before it can be started"
-            )
+        self.controls = Controls(self._camera)
 
         loguru.logger.debug("Starting the camera...")
         self._camera.start_recording(
@@ -299,16 +281,8 @@ class PiCamera:
             name="lores",
         )
 
-    def stop(self) -> None:
-        """Stop the camera."""
-        if self._camera is None:
-            return
-
-        loguru.logger.debug("Stopping the camera...")
-        self._camera.stop_recording()
-
     def close(self) -> None:
-        """Close the camera.
+        """Stop and close the camera.
 
         The camera can be restarted after being closed by calling the `configure()` and `start()`
         methods again.
@@ -316,10 +290,13 @@ class PiCamera:
         if self._camera is None:
             return
 
+        loguru.logger.debug("Stopping the camera...")
+        self._camera.stop_recording()
+
         loguru.logger.debug("Closing the camera...")
         self._camera.close()
         self._camera = None
-        self._controls = None
+        self.controls = None
 
     def capture_file(self, path: str) -> None:
         """Capture an image from the main stream (in full resolution) and save it as a file.
@@ -347,12 +324,3 @@ class PiCamera:
             f"Image metadata: {request.get_metadata()}"  # pylint: disable=no-member
         )
         request.release()  # pylint: disable=no-member
-
-    @property
-    def controls(self) -> typing.Optional[Controls]:
-        """Get the [Controls] instance associated with the camera.
-
-        Returns:
-            A [Controls] object instance for querying and setting camera controls & properties.
-        """
-        return self._controls

@@ -59,7 +59,6 @@ def main_wrapped(_) -> None:
     server = mjpeg.StreamingServer(preview_stream, ("", 8000))
 
     try:
-        cam.configure()
         cam.start()
         server.serve_forever()
     except KeyboardInterrupt:
@@ -67,7 +66,6 @@ def main_wrapped(_) -> None:
     finally:
         server.shutdown()
         server.server_close()
-        cam.stop()
         cam.close()
 
 
@@ -79,7 +77,6 @@ def main_saving(_) -> None:
     server = mjpeg.StreamingServer(preview_stream, ("", 8000))
 
     try:
-        cam.configure()
         cam.start()
         server_thread = threading.Thread(target=server.serve_forever)
         server_thread.start()
@@ -93,7 +90,6 @@ def main_saving(_) -> None:
         server.shutdown()
         server_thread.join()
         server.server_close()
-        cam.stop()
         cam.close()
 
 
