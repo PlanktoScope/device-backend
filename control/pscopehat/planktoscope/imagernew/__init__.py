@@ -8,7 +8,7 @@ import time
 import loguru
 
 from planktoscope import identity, integrity, mqtt
-from planktoscope.imagernew import camera, mjpeg, state_machine, streams
+from planktoscope.imagernew import camera, mjpeg, state_machine
 
 loguru.logger.info("planktoscope.imager is loaded")
 
@@ -54,7 +54,7 @@ class ImagerProcess(multiprocessing.Process):
         self.__error = 0
 
         # Initialize the camera
-        self.preview_stream = streams.LatestByteBuffer()
+        self.preview_stream = camera.PreviewStream()
         self.__camera = camera.PiCamera(self.preview_stream)
         # self.__resolution = None  # this is set by the start method
 
