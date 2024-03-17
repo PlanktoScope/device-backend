@@ -1,16 +1,14 @@
 import datetime
-import functools
 import json
 import multiprocessing
 import os
-import queue
 import threading
 import time
 
 import loguru
 
 from planktoscope import identity, integrity, mqtt
-from planktoscope.imagernew import camera, mjpeg, picam_threading, state_machine, streams
+from planktoscope.imagernew import camera, mjpeg, state_machine, streams
 
 loguru.logger.info("planktoscope.imager is loaded")
 
@@ -18,7 +16,8 @@ loguru.logger.info("planktoscope.imager is loaded")
 class ImagerProcess(multiprocessing.Process):
     """This class contains the main definitions for the imager of the PlanktoScope"""
 
-    def __init__(self, stop_event, exposure_time=10000, iso=100):
+    # def __init__(self, stop_event, exposure_time=10000, iso=100):
+    def __init__(self, stop_event, exposure_time=10000):
         """Initialize the Imager class
 
         Args:
@@ -39,9 +38,9 @@ class ImagerProcess(multiprocessing.Process):
             loguru.logger.info("The hardware configuration file doesn't exists, using defaults")
             configuration = {}
 
-        self.__camera_type = configuration.get("camera_type", "v2.1")
+        # self.__camera_type = configuration.get("camera_type", "v2.1")
 
-        self.command_queue = queue.Queue()
+        self._streaming_thread = None
         # self.shutdown_event = threading.Event()
         self.stop_event = stop_event
         self.__imager = state_machine.Imager()
@@ -57,9 +56,9 @@ class ImagerProcess(multiprocessing.Process):
         # Initialize the camera
         self.preview_stream = streams.LatestByteBuffer()
         self.__camera = camera.PiCamera(self.preview_stream)
-        self.__resolution = None  # this is set by the start method
+        # self.__resolution = None  # this is set by the start method
 
-        self.__iso = iso
+        # self.__iso = iso
         self.__exposure_time = exposure_time
         self.__exposure_mode = "normal"  # "auto"
         self.__white_balance = "off"
@@ -432,7 +431,7 @@ class ImagerProcess(multiprocessing.Process):
 
         # Capture an image to the temporary file
         try:
-            self.__camera.capture(filename_path)
+            self.__camera.capture_file(filename_path)
         except TimeoutError:
             self.__capture_error("timeout during capture")
             return
@@ -519,32 +518,27 @@ class ImagerProcess(multiprocessing.Process):
 
         self.imager_client.client.publish("status/imager", '{"status":"Starting up"}')
 
-        if self.__camera.sensor_name == "IMX219":  # Camera v2.1
-            self.imager_client.client.publish("status/imager", '{"camera_name":"Camera v2.1"}')
-        elif self.__camera.sensor_name == "IMX477":  # Camera HQ
-            self.imager_client.client.publish("status/imager", '{"camera_name":"HQ Camera"}')
-        else:
-            self.imager_client.client.publish("status/imager", '{"camera_name":"Not recognized"}')
-
         loguru.logger.info("Starting the camera and streaming server threads")
         try:
-            # Initialize the camera thread
-            self.camera_thread = picam_threading.PicamThread(
-                self.__camera, self.command_queue, self.stop_event
-            )
-
-            # Note(ethanjli): the camera must be started in the same process as anything which uses
-            # self.preview_stream, such as our StreamingHandler. This is because
-            # self.preview_stream does not synchronize state across independent processes!
-            # TODO(ethanjli): it would be cleaner if we can start the camera and the StreamingServer
-            # separately from the MQTT client; if it's possible, we can figure that out later.
-            # TODO(W7CH): Start the video recording
-            self.camera_thread.start()
+            # Note(ethanjli): the camera must be configured and started in the same process as
+            # anything which uses self.preview_stream, such as our StreamingHandler. This is because
+            # self.preview_stream does not synchronize state across independent processes! We also
+            # need the MQTT client to live in the same process as the camera, because the MQTT
+            # client directly accesses the camera controls (this keeps the code simpler than passing
+            # all camera settings queries/changes through a multiprocessing.Queue).
+            self.__camera.configure()
+            self._announce_camera_name()
+            # TODO: initialize camera controls settings
+            self.__camera.start()
 
         except Exception as e:
             loguru.logger.exception(f"An exception has occured when starting up picamera2: {e}")
             try:
-                self.__camera.start(True)
+                self.__camera.close()
+                self.__camera.configure()
+                self._announce_camera_name()
+                # TODO: initialize camera controls settings
+                self.__camera.start()
             except Exception as e_second:
                 loguru.logger.exception(
                     f"A second exception has occured when starting up picamera2: {e_second}"
@@ -577,12 +571,11 @@ class ImagerProcess(multiprocessing.Process):
 
         try:
             address = ("", 8000)
-            fps = 15
-            refresh_delay = 1 / fps
-            handler = functools.partial(mjpeg.StreamingHandler, refresh_delay, self.preview_stream)
-            server = mjpeg.StreamingServer(address, handler)
-            self.streaming_thread = threading.Thread(target=server.serve_forever, daemon=True)
-            self.streaming_thread.start()
+            server = mjpeg.StreamingServer(self.preview_stream, address)
+            # FIXME(ethanjli): make this not be a daemon thread, by recovering resourcse
+            # appropriately at shutdown!
+            self._streaming_thread = threading.Thread(target=server.serve_forever, daemon=True)
+            self._streaming_thread.start()
 
             # Publish the status "Ready" to Node-RED via MQTT
             self.imager_client.client.publish("status/imager", '{"status":"Ready"}')
@@ -614,3 +607,20 @@ class ImagerProcess(multiprocessing.Process):
             loguru.logger.debug("Stopping MQTT")
             self.imager_client.shutdown()
             loguru.logger.success("Imager process shut down! See you!")
+
+    def _announce_camera_name(self) -> None:
+        """Announce the camera's sensor name as a status update."""
+        camera_names = {
+            "IMX219": "Camera v2.1",
+            "IMX477": "Camera HQ",
+        }
+        self.imager_client.client.publish(
+            "status/imager",
+            json.dumps(
+                {
+                    "camera_name": camera_names.get(
+                        self.__camera.controls.sensor_name, "Not recognized"
+                    ),
+                }
+            ),
+        )
