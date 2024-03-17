@@ -19,9 +19,9 @@ def main() -> None:
     )
     parser.set_defaults(func=main_help)
     subparsers = parser.add_subparsers()
-    subparsers.add_parser("minimal").set_defaults(func=main_minimal)
-    subparsers.add_parser("wrapped").set_defaults(func=main_wrapped)
-    subparsers.add_parser("saving").set_defaults(func=main_saving)
+    subparsers.add_parser("minimal").set_defaults(func=test_minimal)
+    subparsers.add_parser("wrapped").set_defaults(func=test_wrapped)
+    subparsers.add_parser("saving").set_defaults(func=test_saving)
     args = parser.parse_args()
     args.func(args)
 
@@ -31,7 +31,7 @@ def main_help(_) -> None:
     print("You must specify a subcommand! Re-run this command with the --help flag for details.")
 
 
-def main_minimal(_) -> None:
+def test_minimal(_) -> None:
     """Test the camera and MJPEG streamer without planktoscope-specific hardware abstractions."""
     loguru.logger.info("Starting minimal streaming test...")
     cam = picamera2.Picamera2()
@@ -51,7 +51,7 @@ def main_minimal(_) -> None:
         cam.close()
 
 
-def main_wrapped(_) -> None:
+def test_wrapped(_) -> None:
     """Test the camera and MJPEG streamer with the basic thread-safe hardware abstraction."""
     loguru.logger.info("Starting wrapped streaming test...")
     preview_stream = streams.LatestByteBuffer()
@@ -59,7 +59,7 @@ def main_wrapped(_) -> None:
     server = mjpeg.StreamingServer(preview_stream, ("", 8000))
 
     try:
-        cam.start()
+        cam.open()
         server.serve_forever()
     except KeyboardInterrupt:
         loguru.logger.info("Stopping...")
@@ -69,7 +69,7 @@ def main_wrapped(_) -> None:
         cam.close()
 
 
-def main_saving(_) -> None:
+def test_saving(_) -> None:
     """Test the camera and MJPEG streamer while saving images to the current directory."""
     loguru.logger.info("Starting saving streaming test...")
     preview_stream = streams.LatestByteBuffer()
@@ -77,7 +77,7 @@ def main_saving(_) -> None:
     server = mjpeg.StreamingServer(preview_stream, ("", 8000))
 
     try:
-        cam.start()
+        cam.open()
         server_thread = threading.Thread(target=server.serve_forever)
         server_thread.start()
         while True:

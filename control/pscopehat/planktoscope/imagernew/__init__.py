@@ -526,14 +526,14 @@ class ImagerProcess(multiprocessing.Process):
             # need the MQTT client to live in the same process as the camera, because the MQTT
             # client directly accesses the camera controls (this keeps the code simpler than passing
             # all camera settings queries/changes through a multiprocessing.Queue).
-            self.__camera.start()
+            self.__camera.open()
             self._announce_camera_name()
 
         except Exception as e:
             loguru.logger.exception(f"An exception has occured when starting up picamera2: {e}")
             try:
                 self.__camera.close()
-                self.__camera.start()
+                self.__camera.open()
                 self._announce_camera_name()
             except Exception as e_second:
                 loguru.logger.exception(

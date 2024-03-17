@@ -228,7 +228,7 @@ class PiCamera:
         Args:
             preview_output: an image stream which this `PiCamera` instance will write camera preview
               images to.
-            preview_size: a 2-tuple of the width and height (in pixels) of the camera preview.
+            preview_size: the width and height (in pixels) of the camera preview.
             preview_bitrate: the bitrate of the preview stream; defaults to a bitrate for a medium
               quality stream.
         """
@@ -246,7 +246,7 @@ class PiCamera:
         self._preview_size: tuple[int, int] = preview_size
         self._preview_bitrate: typing.Optional[int] = preview_bitrate
 
-    def start(self) -> None:
+    def open(self) -> None:
         """Start the camera in the background, including output to the preview stream."""
         loguru.logger.debug("Configuring the camera...")
         self._camera = picamera2.Picamera2()
@@ -284,8 +284,7 @@ class PiCamera:
     def close(self) -> None:
         """Stop and close the camera.
 
-        The camera can be restarted after being closed by calling the `configure()` and `start()`
-        methods again.
+        The camera can be restarted after being closed by `start()` method again.
         """
         if self._camera is None:
             return
@@ -307,7 +306,8 @@ class PiCamera:
             path: The file path where the image should be saved.
 
         Raises:
-            RuntimeError: the method was called before the camera was configured
+            RuntimeError: the method was called before the camera was started, or after it was
+              closed.
         """
         if self._camera is None:
             raise RuntimeError(
