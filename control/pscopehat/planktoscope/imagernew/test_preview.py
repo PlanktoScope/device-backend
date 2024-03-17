@@ -1,6 +1,8 @@
 """test_streamer is a test script to bring up an isolated camera preview stream on port 8000."""
 
 import argparse
+import threading
+import time
 
 import loguru
 import picamera2  # type: ignore
@@ -19,6 +21,7 @@ def main() -> None:
     subparsers = parser.add_subparsers()
     subparsers.add_parser("minimal").set_defaults(func=main_minimal)
     subparsers.add_parser("wrapped").set_defaults(func=main_wrapped)
+    subparsers.add_parser("saving").set_defaults(func=main_saving)
     args = parser.parse_args()
     args.func(args)
 
@@ -34,12 +37,16 @@ def main_minimal(_) -> None:
     cam = picamera2.Picamera2()
     cam.configure(cam.create_video_configuration(main={"size": (640, 480)}))
     preview_stream = streams.LatestByteBuffer()
+    server = mjpeg.StreamingServer(preview_stream, ("", 8000))
 
     try:
         cam.start_recording(encoders.MJPEGEncoder(), outputs.FileOutput(preview_stream))
-        server = mjpeg.StreamingServer(preview_stream, ("", 8000))
         server.serve_forever()
+    except KeyboardInterrupt:
+        loguru.logger.info("Stopping...")
     finally:
+        server.shutdown()
+        server.server_close()
         cam.stop_recording()
         cam.close()
 
@@ -49,12 +56,43 @@ def main_wrapped(_) -> None:
     loguru.logger.info("Starting wrapped streaming test...")
     preview_stream = streams.LatestByteBuffer()
     cam = camera.PiCamera(preview_stream)
+    server = mjpeg.StreamingServer(preview_stream, ("", 8000))
 
     try:
+        cam.configure()
         cam.start()
-        server = mjpeg.StreamingServer(preview_stream, ("", 8000))
         server.serve_forever()
+    except KeyboardInterrupt:
+        loguru.logger.info("Stopping...")
     finally:
+        server.shutdown()
+        server.server_close()
+        cam.stop()
+        cam.close()
+
+
+def main_saving(_) -> None:
+    """Test the camera and MJPEG streamer while saving images to the current directory."""
+    loguru.logger.info("Starting saving streaming test...")
+    preview_stream = streams.LatestByteBuffer()
+    cam = camera.PiCamera(preview_stream)
+    server = mjpeg.StreamingServer(preview_stream, ("", 8000))
+
+    try:
+        cam.configure()
+        cam.start()
+        server_thread = threading.Thread(target=server.serve_forever)
+        server_thread.start()
+        while True:
+            loguru.logger.info("Capturing frame...")
+            cam.capture_file("test_preview_capture.jpg")
+            time.sleep(1.0)
+    except KeyboardInterrupt:
+        loguru.logger.info("Stopping...")
+    finally:
+        server.shutdown()
+        server_thread.join()
+        server.server_close()
         cam.stop()
         cam.close()
 

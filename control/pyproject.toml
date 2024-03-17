@@ -72,7 +72,7 @@ smbus2 = "~0.4.1"
 picamera = "~1.13"
 # Note(ethanjli): I think ==0.3.10 is needed for bullseye's libcamera? We should revisit this for
 # bookworm.
-picamera2 = "==0.3.10"
+picamera2 = "==0.3.12"
 # Note: the following packages are only indirect dependencies, but we need to download wheels from
 # the appropriate sources, so we must explicitly select them here
 rpi-ws281x = [
