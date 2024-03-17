@@ -84,9 +84,12 @@ sysv-ipc = [
   { version = "~1.1.0", source = "piwheels", markers = "platform_machine == 'armv7l'" },
 ]
 numpy = [
+  # v1.19.5 (needed for the RPi on bullseye) fails to install in GitHub Actions, so we just use
+  # the latest version and hope that the differences won't be significant enough to cause a
+  # mismatch between CI and the production environment (i.e. the RPi):
+  { version = "~1.26.4", source = "pypi", markers = "platform_machine != 'armv7l'" },
   # This is the version pre-installed on RPi OS 11 (bullseye), and if we try to install a newer
   # version we have to re-build the wheel for some reason.
-  { version = "==1.19.5", source = "pypi", markers = "platform_machine != 'armv7l'" },
   { version = "==1.19.5", source = "piwheels", markers = "platform_machine == 'armv7l'" },
 ]
 spidev = [
