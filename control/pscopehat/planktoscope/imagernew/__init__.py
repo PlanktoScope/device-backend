@@ -16,8 +16,8 @@ loguru.logger.info("planktoscope.imager is loaded")
 class ImagerProcess(multiprocessing.Process):
     """This class contains the main definitions for the imager of the PlanktoScope"""
 
-    # def __init__(self, stop_event, exposure_time=10000, iso=100):
-    def __init__(self, stop_event, exposure_time=10000):
+    # def __init__(self, stop_event, exposure_time=125, iso=100):
+    def __init__(self, stop_event, exposure_time=125):
         """Initialize the Imager class
 
         Args:
@@ -49,7 +49,6 @@ class ImagerProcess(multiprocessing.Process):
         self.__sleep_before = None
         self.__pump_volume = None
         self.__pump_direction = "FORWARD"
-        self.__img_goal = None
         self.imager_client = None
         self.__error = 0
 
@@ -74,13 +73,16 @@ class ImagerProcess(multiprocessing.Process):
             os.makedirs(self.__base_path)
 
         self.__export_path = ""
-        self.__global_metadata = None
+        self.__global_metadata = {}
 
         loguru.logger.success("planktoscope.imager is initialised and ready to go!")
 
     # copied #
     def __message_image(self, last_message):
         """Actions for when we receive a message"""
+        if self.imager_client is None:
+            raise RuntimeError("Imager MQTT client is not running yet")
+
         if (
             "sleep" not in last_message
             or "volume" not in last_message
@@ -111,6 +113,9 @@ class ImagerProcess(multiprocessing.Process):
 
     # copied #
     def __message_stop(self):
+        if self.imager_client is None:
+            raise RuntimeError("Imager MQTT client is not running yet")
+
         self.imager_client.client.unsubscribe("status/pump")
 
         # Stops the pump
@@ -125,6 +130,9 @@ class ImagerProcess(multiprocessing.Process):
 
     # copied #
     def __message_update(self, last_message):
+        if self.imager_client is None:
+            raise RuntimeError("Imager MQTT client is not running yet")
+
         if self.__imager.state.name == "stop":
             if "config" not in last_message:
                 loguru.logger.error(f"The received message has the wrong argument {last_message}")
@@ -146,6 +154,9 @@ class ImagerProcess(multiprocessing.Process):
             self.imager_client.client.publish("status/imager", '{"status":"Busy"}')
 
     def __message_settings(self, last_message):
+        if self.imager_client is None:
+            raise RuntimeError("Imager MQTT client is not running yet")
+
         if self.__imager.state.name != "stop":
             loguru.logger.error("We can't update the camera settings while we are imaging.")
             # Publish the status "Interrupted" to via MQTT to Node-RED
@@ -180,15 +191,20 @@ class ImagerProcess(multiprocessing.Process):
         loguru.logger.info("Camera settings have been updated")
 
     def __message_settings_ss(self, settings):
+        if self.imager_client is None:
+            raise RuntimeError("Imager MQTT client is not running yet")
+        if self.__camera.controls is None:
+            raise RuntimeError("Camera has not started yet")
+
         self.__exposure_time = settings.get("shutter_speed", self.__exposure_time)
         loguru.logger.debug(f"Updating the camera shutter speed to {self.__exposure_time}")
         try:
-            self.__camera.exposure_time = self.__exposure_time
+            self.__camera.controls.exposure_time = self.__exposure_time
         except TimeoutError:
             loguru.logger.error(
                 "A timeout has occured when setting the shutter speed, trying again"
             )
-            self.__camera.exposure_time = self.__exposure_time
+            self.__camera.controls.exposure_time = self.__exposure_time
         except ValueError as e:
             loguru.logger.error("The requested shutter speed is not valid!")
             self.imager_client.client.publish(
@@ -197,6 +213,11 @@ class ImagerProcess(multiprocessing.Process):
             raise e
 
     def __message_settings_wb_gain(self, settings):
+        if self.imager_client is None:
+            raise RuntimeError("Imager MQTT client is not running yet")
+        if self.__camera.controls is None:
+            raise RuntimeError("Camera has not started yet")
+
         if "red" in settings["white_balance_gain"]:
             loguru.logger.debug(
                 "Updating the camera white balance red gain to "
@@ -219,12 +240,12 @@ class ImagerProcess(multiprocessing.Process):
             f"Updating the camera white balance gain to {self.__white_balance_gain}"
         )
         try:
-            self.__camera.white_balance_gain = self.__white_balance_gain
+            self.__camera.controls.white_balance_gain = self.__white_balance_gain
         except TimeoutError:
             loguru.logger.error(
                 "A timeout has occured when setting the white balance gain, trying again"
             )
-            self.__camera.white_balance_gain = self.__white_balance_gain
+            self.__camera.controls.white_balance_gain = self.__white_balance_gain
         except ValueError as e:
             loguru.logger.error("The requested white balance gain is not valid!")
             self.imager_client.client.publish(
@@ -234,18 +255,23 @@ class ImagerProcess(multiprocessing.Process):
             raise e
 
     def __message_settings_wb(self, settings):
+        if self.imager_client is None:
+            raise RuntimeError("Imager MQTT client is not running yet")
+        if self.__camera.controls is None:
+            raise RuntimeError("Camera has not started yet")
+
         loguru.logger.debug(
             f"Updating the camera white balance mode to {settings['white_balance']}"
         )
         self.__white_balance = settings.get("white_balance", self.__white_balance)
         loguru.logger.debug(f"Updating the camera white balance mode to {self.__white_balance}")
         try:
-            self.__camera.white_balance = self.__white_balance
+            self.__camera.controls.white_balance = self.__white_balance
         except TimeoutError:
             loguru.logger.error(
                 "A timeout has occured when setting the white balance, trying again"
             )
-            self.__camera.white_balance = self.__white_balance
+            self.__camera.controls.white_balance = self.__white_balance
         except ValueError as e:
             loguru.logger.error("The requested white balance is not valid!")
             self.imager_client.client.publish(
@@ -255,6 +281,11 @@ class ImagerProcess(multiprocessing.Process):
             raise e
 
     def __message_settings_image_gain(self, settings):
+        if self.imager_client is None:
+            raise RuntimeError("Imager MQTT client is not running yet")
+        if self.__camera.controls is None:
+            raise RuntimeError("Camera has not started yet")
+
         if "analog" in settings["image_gain"]:
             loguru.logger.debug(
                 f"Updating the camera image analog gain to {settings['image_gain']}"
@@ -262,12 +293,12 @@ class ImagerProcess(multiprocessing.Process):
             self.__image_gain = settings["image_gain"].get("analog", self.__image_gain)
         loguru.logger.debug(f"Updating the camera image gain to {self.__image_gain}")
         try:
-            self.__camera.image_gain = self.__image_gain
+            self.__camera.controls.image_gain = self.__image_gain
         except TimeoutError:
             loguru.logger.error(
                 "A timeout has occured when setting the white balance gain, trying again"
             )
-            self.__camera.image_gain = self.__image_gain
+            self.__camera.controls.image_gain = self.__image_gain
         except ValueError as e:
             loguru.logger.error("The requested image gain is not valid!")
             self.imager_client.client.publish(
@@ -279,6 +310,9 @@ class ImagerProcess(multiprocessing.Process):
     # copied #
     @loguru.logger.catch
     def treat_message(self):
+        if self.imager_client is None:
+            raise RuntimeError("Imager MQTT client is not running yet")
+
         action = ""
         loguru.logger.info("We received a new message")
         if self.imager_client.msg["topic"].startswith("imager/"):
@@ -326,6 +360,8 @@ class ImagerProcess(multiprocessing.Process):
     # copied #
     def __pump_message(self):
         """Sends a message to the pump process"""
+        if self.imager_client is None:
+            raise RuntimeError("Imager MQTT client is not running yet")
 
         # Pump during a given volume
         self.imager_client.client.publish(
@@ -341,6 +377,9 @@ class ImagerProcess(multiprocessing.Process):
         )
 
     def __state_imaging(self):
+        if self.imager_client is None:
+            raise RuntimeError("Imager MQTT client is not running yet")
+
         # subscribe to status/pump
         self.imager_client.client.subscribe("status/pump")
 
@@ -417,6 +456,9 @@ class ImagerProcess(multiprocessing.Process):
         self.__imager.change(state_machine.Waiting)
 
     def __state_capture(self):
+        if self.imager_client is None:
+            raise RuntimeError("Imager MQTT client is not running yet")
+
         filename = f"{datetime.datetime.now().strftime('%H_%M_%S_%f')}.jpg"
 
         # Define the filename of the image
@@ -427,6 +469,8 @@ class ImagerProcess(multiprocessing.Process):
         )
 
         # Sleep a duration before to start acquisition
+        if self.__sleep_before is None:
+            raise RuntimeError("Uninitialized pre-acquisition sleep duration")
         time.sleep(self.__sleep_before)
 
         # Capture an image to the temporary file
@@ -472,6 +516,9 @@ class ImagerProcess(multiprocessing.Process):
 
     # copied #
     def __capture_error(self, message=""):
+        if self.imager_client is None:
+            raise RuntimeError("Imager MQTT client is not running yet")
+
         loguru.logger.error(f"An error occurred during the capture: {message}")
         if self.__error:
             loguru.logger.error("This is a repeating problem, stopping the capture now")
@@ -542,17 +589,21 @@ class ImagerProcess(multiprocessing.Process):
                 loguru.logger.error("This error can't be recovered from, terminating now")
                 raise e_second
 
+        if self.__camera.controls is None:
+            raise RuntimeError("Camera was unable to start")
+
         loguru.logger.info("Initialising the camera with the default settings...")
         # TODO identify the camera parameters that can be accessed and initialize them
-        self.__camera.exposure_time = self.__exposure_time
+        time.sleep(0.1)  # FIXME: block on the camera until the controls are ready?
+        self.__camera.controls.exposure_time = self.__exposure_time
         time.sleep(0.1)
-        self.__camera.exposure_mode = self.__exposure_mode
+        self.__camera.controls.exposure_mode = self.__exposure_mode
         time.sleep(0.1)
-        self.__camera.white_balance = self.__white_balance
+        self.__camera.controls.white_balance = self.__white_balance
         time.sleep(0.1)
-        self.__camera.white_balance_gain = self.__white_balance_gain
+        self.__camera.controls.white_balance_gain = self.__white_balance_gain
         time.sleep(0.1)
-        self.__camera.image_gain = self.__image_gain
+        self.__camera.controls.image_gain = self.__image_gain
 
         # if self.__camera.sensor_name == "IMX219":  # Camera v2.1
         #     self.__resolution = (3280, 2464)
@@ -606,6 +657,11 @@ class ImagerProcess(multiprocessing.Process):
 
     def _announce_camera_name(self) -> None:
         """Announce the camera's sensor name as a status update."""
+        if self.imager_client is None:
+            raise RuntimeError("Imager MQTT client is not running yet")
+        if self.__camera.controls is None:
+            raise RuntimeError("Camera has not started yet")
+
         camera_names = {
             "IMX219": "Camera v2.1",
             "IMX477": "Camera HQ",

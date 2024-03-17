@@ -1,6 +1,8 @@
 """mjpeg provides an HTTP server to serve an MJPEG stream."""
 
 import functools
+import socket
+import socketserver
 import typing
 from http import server
 
@@ -9,7 +11,7 @@ import typing_extensions
 
 
 class ByteBufferStream(typing_extensions.Protocol):
-    """ByteBufferStream represents a stream of byte buffers where the latest one can be watched."""
+    """Interface for a stream of byte buffers where the latest one can be watched."""
 
     def wait_next(self) -> None:
         """Blocks until a new byte buffer is available on the stream of byte buffers."""
@@ -19,9 +21,15 @@ class ByteBufferStream(typing_extensions.Protocol):
 
 
 class _StreamingHandler(server.BaseHTTPRequestHandler):
-    def __init__(self, latest_frame: ByteBufferStream, *args, **kwargs):
+    def __init__(
+        self,
+        latest_frame: ByteBufferStream,
+        request: typing.Union[socket.socket, tuple[bytes, socket.socket]],
+        client_address: tuple[str, int],
+        server: socketserver.BaseServer,
+    ) -> None:
         self.latest_frame = latest_frame
-        super().__init__(*args, **kwargs)
+        super().__init__(request, client_address, server)
 
     @loguru.logger.catch
     # pylint: disable-next=invalid-name
@@ -44,6 +52,8 @@ class _StreamingHandler(server.BaseHTTPRequestHandler):
                 while True:
                     self.latest_frame.wait_next()
                     frame = self.latest_frame.get()
+                    if frame is None:
+                        continue
                     self._send_mjpeg_frame(frame)
             except BrokenPipeError:
                 loguru.logger.info("Removed streaming client")
@@ -53,17 +63,17 @@ class _StreamingHandler(server.BaseHTTPRequestHandler):
         self.end_headers()
 
     @loguru.logger.catch
-    def _send_mjpeg_header(self):
+    def _send_mjpeg_header(self) -> None:
         """Send the headers to start an MJPEG stream."""
         self.send_response(200)
-        self.send_header("Age", 0)
+        self.send_header("Age", str(0))
         self.send_header("Cache-Control", "no-cache, private")
         self.send_header("Pragma", "no-cache")
         self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=FRAME")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
 
-    def _send_mjpeg_frame(self, frame: bytes):
+    def _send_mjpeg_frame(self, frame: bytes) -> None:
         """Send the next MJPEG frame from the stream."""
         self.wfile.write(b"--FRAME\r\n")
         self.send_header("Content-Type", "image/jpeg")
@@ -84,7 +94,9 @@ class StreamingServer(server.ThreadingHTTPServer):
     allow_reuse_address = True
     daemon_threads = True
 
-    def __init__(self, mjpeg_stream: ByteBufferStream, server_address=("", 8000)):
+    def __init__(
+        self, mjpeg_stream: ByteBufferStream, server_address: tuple[str, int] = ("", 8000)
+    ) -> None:
         """Initialize a server to serve an MJPEG stream at the specified address.
 
         Args:

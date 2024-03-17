@@ -200,6 +200,22 @@ extend_skip_glob = [
 ]
 
 [tool.mypy]
+warn_unused_configs = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+# We are gradually introducing type-checking as we rewrite each module; we have to rewrite some
+# modules before we can enable these flags:
+# disallow_untyped_calls = true
+# disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+no_implicit_reexport = true
+strict_equality = true
+extra_checks = true
 # We are gradually introducing type-checking as we rewrite each module; we haven't rewritten the
 # following files yet:
 exclude = [

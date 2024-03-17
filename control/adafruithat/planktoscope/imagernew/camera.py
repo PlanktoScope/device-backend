@@ -4,7 +4,7 @@ import io
 import threading
 import typing
 
-# import libcamera  # type: ignore
+import libcamera  # type: ignore
 import loguru
 import picamera2  # type: ignore
 import typing_extensions
@@ -23,7 +23,7 @@ class PiCamera:
     def __init__(
         self,
         preview_output: io.BufferedIOBase,
-        preview_size=(640, 480),
+        preview_size: tuple[int, int] = (640, 480),
         preview_bitrate: typing.Optional[int] = None,
     ) -> None:
         """Set up state needed to initialize the camera, but don't actually start the camera.
@@ -71,7 +71,7 @@ class PiCamera:
         # self._preview_size = config["preview"]["size"]
         self._camera.configure(config)
 
-        self.controls = Controls(self._camera)
+        self.controls = Controls(self._camera, config["controls"]["FrameDurationLimits"])
 
         loguru.logger.debug("Starting the camera...")
         self._camera.start_recording(
@@ -132,8 +132,18 @@ class PiCamera:
 class Controls:
     """A wrapper to simplify setting and querying of camera controls & properties."""
 
-    def __init__(self, camera: picamera2.Picamera2) -> None:
+    def __init__(self, camera: picamera2.Picamera2, exposure_range: tuple[int, int]) -> None:
+        """Initialize the camera controls.
+
+        Args:
+            exposure_range: the minimum and maximum allowed exposure duration values.
+        """
         self._camera = camera
+        self._exposure_range = exposure_range
+
+        # Cached values
+        self._cache_lock = rwlock.RWLockWrite()
+        self._exposure_time: typing.Optional[int] = None
 
     # Note: self._camera.controls is thread-safe because it has its own internal threading.Lock()
     # instance. However, if we store any state in Controls, then we should add a reader-writer lock
@@ -147,161 +157,150 @@ class Controls:
             The name of the camera's sensor. One of: `OV5647` (original RPi Camera Module),
             `IMX219` (RPi Camera Module 2), or `IMX477` (RPi High Quality Camera)
         """
-        return self._camera.camera_properties["Model"].upper()
+        model = self._camera.camera_properties["Model"]
+        assert isinstance(model, str)
+        return model.upper()
 
-    # TODO(ethanjli): Delete this if we actually don't need it:
-    # @property
-    # def main_dimensions(self) -> tuple[int, int]:
-    #     return self._camera.sensor_resolution
-
-    # TODO(ethanjli): Delete this if we actually don't need it:
     # FIXME(ethanjli): does this actually return an int?
-    # @property
-    # def exposure_time(self) -> int:
-    #     _, _, default = self._camera.controls.ExposureTime
-    #     return default
+    @property
+    def exposure_time(self) -> typing.Optional[int]:
+        with self._cache_lock.gen_rlock():
+            # TODO: check whether we need to track this as internal state, vs. reading the default
+            # value
+            return self._exposure_time
 
-    # TODO(ethanjli): Delete this if we actually don't need it:
-    # @exposure_time.setter
-    # def exposure_time(self, exposure_time: int) -> None:
-    #     """Change the camera sensor exposure time.
+    @exposure_time.setter
+    def exposure_time(self, exposure_time: int) -> None:
+        """Change the camera sensor exposure time.
 
-    #     Args:
-    #         exposure_time (int): exposure time in µs
+        Args:
+            exposure_time (int): exposure time in µs
 
-    #     Raises:
-    #         ValueError: if the provided exposure time is outside the allowed range
-    #     """
-    #     min_value, max_value, _ = self._camera.controls.ExposureTime
-    #     if exposure_time < min_value or exposure_time > max_value:
-    #         raise ValueError(
-    #             f"Invalid exposure time ({exposure_time}) outside bounds: "
-    #             + f"[{min_value}, {max_value}]"
-    #         )
+        Raises:
+            ValueError: if the provided exposure time is outside the allowed range
+        """
+        if exposure_time < self._exposure_range[0] or exposure_time > self._exposure_range[1]:
+            raise ValueError(
+                f"Invalid exposure time ({exposure_time}) outside bounds: "
+                + f"[{self._exposure_range}]"
+            )
 
-    #     loguru.logger.debug(f"Setting the exposure time to {exposure_time}...")
-    #     self._exposure_time = exposure_time
-    #     self._camera.controls.ExposureTime = self._exposure_time
+        loguru.logger.debug(f"Setting the exposure time to {exposure_time}...")
+        with self._cache_lock.gen_wlock():
+            self._exposure_time = exposure_time
+            self._camera.controls.ExposureTime = self._exposure_time
 
-    # TODO(ethanjli): Delete this if we actually don't need it:
-    # @property
-    # def exposure_mode(self):
-    #     return self.__exposure_mode
+    @property
+    def exposure_mode(self):
+        return self.__exposure_mode
 
-    # TODO(ethanjli): Delete this if we actually don't need it:
-    # @exposure_mode.setter
-    # def exposure_mode(self, mode):
-    #     """Change the camera exposure mode
+    @exposure_mode.setter
+    def exposure_mode(self, mode):
+        """Change the camera exposure mode
 
-    #     Is one of off, normal, short, long
+        Is one of off, normal, short, long
 
-    #     Args:
-    #         mode (string): exposure mode to use
-    #     """
-    #     loguru.logger.debug(f"Setting the exposure mode to {mode}")
-    #     EXPOSURE_MODES = {
-    #         "off": False,
-    #         "normal": libcamera.controls.AeExposureModeEnum.Normal,
-    #         "short": libcamera.controls.AeExposureModeEnum.Short,
-    #         "long": libcamera.controls.AeExposureModeEnum.Long,
-    #     }
-    #     if mode not in EXPOSURE_MODES:
-    #         loguru.logger.error(f"The exposure mode specified ({mode}) is not valid")
-    #         raise ValueError
+        Args:
+            mode (string): exposure mode to use
+        """
+        loguru.logger.debug(f"Setting the exposure mode to {mode}")
+        EXPOSURE_MODES = {
+            "off": False,
+            "normal": libcamera.controls.AeExposureModeEnum.Normal,
+            "short": libcamera.controls.AeExposureModeEnum.Short,
+            "long": libcamera.controls.AeExposureModeEnum.Long,
+        }
+        if mode not in EXPOSURE_MODES:
+            loguru.logger.error(f"The exposure mode specified ({mode}) is not valid")
+            raise ValueError
 
-    #     self.__exposure_mode = EXPOSURE_MODES[mode]
-    #     if mode == "off":
-    #         self._camera.set_controls({"AeEnable": self.__exposure_mode})
-    #         return
+        self.__exposure_mode = EXPOSURE_MODES[mode]
+        if mode == "off":
+            self._camera.set_controls({"AeEnable": self.__exposure_mode})
+            return
 
-    #     self._camera.set_controls({"AeEnable": 1, "AeExposureMode": self.__exposure_mode})
+        self._camera.set_controls({"AeEnable": 1, "AeExposureMode": self.__exposure_mode})
 
-    # TODO(ethanjli): Delete this if we actually don't need it:
-    # @property
-    # def white_balance(self):
-    #     return self.__white_balance
+    @property
+    def white_balance(self):
+        return self.__white_balance
 
-    # TODO(ethanjli): Delete this if we actually don't need it:
-    # @white_balance.setter
-    # def white_balance(self, mode):
-    #     """Change the camera white balance mode
+    @white_balance.setter
+    def white_balance(self, mode):
+        """Change the camera white balance mode
 
-    #     Is one of off, auto, tungsten, fluorescent,
-    #     indoor, daylight, cloudy
+        Is one of off, auto, tungsten, fluorescent,
+        indoor, daylight, cloudy
 
-    #     Args:
-    #         mode (string): white balance mode to use
-    #     """
-    #     loguru.logger.debug(f"Setting the white balance mode to {mode}")
-    #     modes = {
-    #         "off": False,
-    #         "auto": libcamera.controls.AwbModeEnum.Auto,
-    #         "tungsten": libcamera.controls.AwbModeEnum.Tungsten,
-    #         "fluorescent": libcamera.controls.AwbModeEnum.Fluorescent,
-    #         "indoor": libcamera.controls.AwbModeEnum.Indoor,
-    #         "daylight": libcamera.controls.AwbModeEnum.Daylight,
-    #         "cloudy": libcamera.controls.AwbModeEnum.Cloudy,
-    #     }
-    #     if mode in modes:
-    #         self.__white_balance = modes[mode]
-    #         if mode == "off":
-    #             self._camera.set_controls({"AwbEnable": self.__white_balance})
-    #         else:
-    #             self._camera.set_controls(
-    #                 {"AwbEnable": 1, "AwbMode": self.__white_balance}
-    #             )  # "AwbEnable": 1,
-    #     else:
-    #         loguru.logger.error(f"The camera white balance mode specified ({mode}) is not valid")
-    #         raise ValueError
+        Args:
+            mode (string): white balance mode to use
+        """
+        loguru.logger.debug(f"Setting the white balance mode to {mode}")
+        modes = {
+            "off": False,
+            "auto": libcamera.controls.AwbModeEnum.Auto,
+            "tungsten": libcamera.controls.AwbModeEnum.Tungsten,
+            "fluorescent": libcamera.controls.AwbModeEnum.Fluorescent,
+            "indoor": libcamera.controls.AwbModeEnum.Indoor,
+            "daylight": libcamera.controls.AwbModeEnum.Daylight,
+            "cloudy": libcamera.controls.AwbModeEnum.Cloudy,
+        }
+        if mode in modes:
+            self.__white_balance = modes[mode]
+            if mode == "off":
+                self._camera.set_controls({"AwbEnable": self.__white_balance})
+            else:
+                self._camera.set_controls(
+                    {"AwbEnable": 1, "AwbMode": self.__white_balance}
+                )  # "AwbEnable": 1,
+        else:
+            loguru.logger.error(f"The camera white balance mode specified ({mode}) is not valid")
+            raise ValueError
 
-    # TODO(ethanjli): Delete this if we actually don't need it:
-    # @property
-    # def white_balance_gain(self):
-    #     return self.__white_balance_gain
+    @property
+    def white_balance_gain(self):
+        return self.__white_balance_gain
 
-    # TODO(ethanjli): Delete this if we actually don't need it:
-    # @white_balance_gain.setter
-    # def white_balance_gain(self, gain):
-    #     """Change the camera white balance gain
+    @white_balance_gain.setter
+    def white_balance_gain(self, gain):
+        """Change the camera white balance gain
 
-    #         The gain value should be a floating point number between 0.0 and 32.0 for
-    #         the red and the blue gain.
+            The gain value should be a floating point number between 0.0 and 32.0 for
+            the red and the blue gain.
 
-    #     Args:
-    #         gain (tuple of float): Red gain and blue gain to use
-    #     """
-    #     loguru.logger.debug(f"Setting the white balance gain to {gain}")
-    #     if (0.0 <= gain[0] <= 32.0) and (0.0 <= gain[1] <= 32.0):
-    #         self.__white_balance_gain = gain
-    #         self._camera.controls.ColourGains = self.__white_balance_gain
-    #     else:
-    #         loguru.logger.error(f"The camera white balance gain specified ({gain}) is not valid")
-    #         raise ValueError
+        Args:
+            gain (tuple of float): Red gain and blue gain to use
+        """
+        loguru.logger.debug(f"Setting the white balance gain to {gain}")
+        if (0.0 <= gain[0] <= 32.0) and (0.0 <= gain[1] <= 32.0):
+            self.__white_balance_gain = gain
+            self._camera.controls.ColourGains = self.__white_balance_gain
+        else:
+            loguru.logger.error(f"The camera white balance gain specified ({gain}) is not valid")
+            raise ValueError
 
-    # TODO(ethanjli): Delete this if we actually don't need it:
-    # @property
-    # def image_gain(self):
-    #     return self.__image_gain
+    @property
+    def image_gain(self):
+        return self.__image_gain
 
-    # TODO(ethanjli): Delete this if we actually don't need it:
-    # @image_gain.setter
-    # def image_gain(self, gain):
-    #     """Change the camera image gain
+    @image_gain.setter
+    def image_gain(self, gain):
+        """Change the camera image gain
 
-    #         The camera image gain value should be a floating point number between 1.0 and 16.0
-    #         for the analog gain and the digital gain (used automatically when the sensor’s
-    #         analog gain control cannot go high enough).
+            The camera image gain value should be a floating point number between 1.0 and 16.0
+            for the analog gain and the digital gain (used automatically when the sensor’s
+            analog gain control cannot go high enough).
 
-    #     Args:
-    #         gain (float): Image gain to use
-    #     """
-    #     loguru.logger.debug(f"Setting the analogue gain to {gain}")
-    #     if 1.0 <= gain <= 16.0:
-    #         self.__image_gain = gain
-    #         self._camera.controls.AnalogueGain = self.__image_gain  # DigitalGain
-    #     else:
-    #         loguru.logger.error(f"The camera image gain specified ({gain}) is not valid")
-    #         raise ValueError
+        Args:
+            gain (float): Image gain to use
+        """
+        loguru.logger.debug(f"Setting the analogue gain to {gain}")
+        if 1.0 <= gain <= 16.0:
+            self.__image_gain = gain
+            self._camera.controls.AnalogueGain = self.__image_gain  # DigitalGain
+        else:
+            loguru.logger.error(f"The camera image gain specified ({gain}) is not valid")
+            raise ValueError
 
     # TODO(ethanjli): Delete this if we actually don't need it:
     # @property

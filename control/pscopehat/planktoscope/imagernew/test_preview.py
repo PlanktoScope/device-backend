@@ -6,7 +6,7 @@ import time
 
 import loguru
 import picamera2  # type: ignore
-from picamera2 import encoders, outputs  # type: ignore
+from picamera2 import encoders, outputs
 
 from planktoscope.imagernew import camera, mjpeg
 
@@ -23,15 +23,15 @@ def main() -> None:
     subparsers.add_parser("wrapped").set_defaults(func=test_wrapped)
     subparsers.add_parser("saving").set_defaults(func=test_saving)
     args = parser.parse_args()
-    args.func(args)
+    args.func()
 
 
-def main_help(_) -> None:
+def main_help() -> None:
     """Print a help message."""
     print("You must specify a subcommand! Re-run this command with the --help flag for details.")
 
 
-def test_minimal(_) -> None:
+def test_minimal() -> None:
     """Test the camera and MJPEG streamer without planktoscope-specific hardware abstractions."""
     loguru.logger.info("Starting minimal streaming test...")
     cam = picamera2.Picamera2()
@@ -51,7 +51,7 @@ def test_minimal(_) -> None:
         cam.close()
 
 
-def test_wrapped(_) -> None:
+def test_wrapped() -> None:
     """Test the camera and MJPEG streamer with the basic thread-safe hardware abstraction."""
     loguru.logger.info("Starting wrapped streaming test...")
     preview_stream = camera.PreviewStream()
@@ -69,7 +69,7 @@ def test_wrapped(_) -> None:
         cam.close()
 
 
-def test_saving(_) -> None:
+def test_saving() -> None:
     """Test the camera and MJPEG streamer while saving images to the current directory."""
     loguru.logger.info("Starting saving streaming test...")
     preview_stream = camera.PreviewStream()
