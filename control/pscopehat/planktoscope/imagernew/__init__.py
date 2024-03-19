@@ -20,10 +20,12 @@ loguru.logger.info("planktoscope.imager is loaded")
 
 
 class ImagerProcess(multiprocessing.Process):
-    """This class contains the main definitions for the imager of the PlanktoScope"""
+    """An MQTT+MJPEG API for the PlanktoScope's camera and image acquisition modules."""
 
-    # def __init__(self, stop_event, exposure_time=125, iso=100):
-    def __init__(self, stop_event, exposure_time=125):
+    # FIXME(ethanjli): instead of passing in a stop_event, just expose a `close()` method! This
+    # way, we don't give any process the ability to stop all other processes watching the same
+    # stop_event!
+    def __init__(self, stop_event):
         """Initialize the Imager class
 
         Args:
@@ -35,167 +37,102 @@ class ImagerProcess(multiprocessing.Process):
 
         loguru.logger.info("planktoscope.imager is initialising")
 
+        # FIXME(ethanjli): move this to self._camera if only self._camera needs these settings;
+        # ideally decompose config-loading to a separate module. That module should also be where
+        # the file schema is defined!
         if os.path.exists("/home/pi/PlanktoScope/hardware.json"):
             # load hardware.json
             with open("/home/pi/PlanktoScope/hardware.json", "r", encoding="utf-8") as config_file:
-                configuration = json.load(config_file)
-                loguru.logger.debug(f"Hardware configuration loaded is {configuration}")
+                self._hardware_config = json.load(config_file)
+                loguru.logger.debug(
+                    f"Loaded hardware configuration loaded: {self._hardware_config}",
+                )
         else:
-            loguru.logger.info("The hardware configuration file doesn't exists, using defaults")
-            configuration = {}
+            loguru.logger.info("The hardware configuration file doesn't exist, using defaults!")
+            self._hardware_config = {}
 
-        # self.__camera_type = configuration.get("camera_type", "v2.1")
-
-        self._streaming_thread = None
-        # self.shutdown_event = threading.Event()
-        self.stop_event = stop_event
-
-        self._mqtt = None
-
-        self._pump: typing.Optional[MQTTPump] = None
+        # Internal state
+        self._stop_event_loop = stop_event
+        self._metadata: dict[str, typing.Any] = {}
         self._routine: typing.Optional[ImageAcquisitionRoutine] = None
 
-        # Camera
-        self.preview_stream = camera.PreviewStream()
-        self._camera = camera.PiCamera(self.preview_stream)
-        # self.__resolution = None  # this is set by the start method
-        # self.__iso = iso
-        self.__exposure_time = exposure_time
-        self.__exposure_mode: camera.ExposureModes = "normal"  # FIXME(ethanjli): default to "off"?
-        self.__white_balance_mode: camera.WhiteBalanceModes = "off"
-        self.__white_balance_gain = (
-            configuration.get("red_gain", 2.00),
-            configuration.get("blue_gain", 1.40),
-        )
-        self.__image_gain = configuration.get("analog_gain", 1.00)
+        # I/O
+        self._mqtt: typing.Optional[mqtt.MQTT_Client] = None
+        self._pump: typing.Optional[MQTTPump] = None
+        self._camera: typing.Optional[MQTTCamera] = None
 
-        self.__base_path = "/home/pi/data/img"
-        if not os.path.exists(self.__base_path):
-            os.makedirs(self.__base_path)
+        loguru.logger.success("planktoscope.imager is initialized and ready to go!")
 
-        self.__global_metadata = {}
+    @loguru.logger.catch
+    def run(self) -> None:
+        """Run the main event loop."""
+        loguru.logger.info(f"The imager control thread has been started in process {os.getpid()}")
+        self._mqtt = mqtt.MQTT_Client(topic="imager/#", name="imager_client")
+        self._mqtt.client.publish("status/imager", '{"status":"Starting up"}')
 
-        loguru.logger.success("planktoscope.imager is initialised and ready to go!")
+        loguru.logger.info("Starting the pump RPC client...")
+        self._pump = MQTTPump()
+        self._pump.open()
+        loguru.logger.success("Pump RPC client is ready!")
 
-    def _start_acquisition(self, latest_message):
-        """Actions for when we receive a message"""
-        if self._mqtt is None:
-            raise RuntimeError("Imager MQTT client is not running yet")
-        if self._pump is None:
-            raise RuntimeError("Pump RPC client was not initialized yet")
+        loguru.logger.info("Starting the camera...")
+        self._camera = MQTTCamera(self._hardware_config)
+        self._camera.open()
+        loguru.logger.success("Camera is ready!")
+        self._mqtt.client.publish("status/imager", '{"status":"Ready"}')
 
-        # Process command args
-        for field in ("nb_frame", "sleep", "volume", "pump_direction"):
-            if field not in latest_message:
-                loguru.logger.error(
-                    f"The received message is missing field '{field}': {latest_message}"
-                )
-                self._mqtt.client.publish("status/imager", '{"status":"Error"}')
-                return
-        if latest_message["pump_direction"] not in stopflow.PumpDirection.__members__:
+        try:
+            while not self._stop_event_loop.is_set():
+                if self._routine is not None and not self._routine.is_alive():
+                    # Garbage-collect any finished image-acquisition routine threads so that we're
+                    # ready for the next configuration update command which arrives:
+                    self._routine.stop()
+                    self._routine = None
+
+                if not self._mqtt.new_message_received():
+                    time.sleep(0.1)
+                    continue
+                self._handle_new_message()
+        finally:
+            loguru.logger.info("Shutting down the imager process...")
+            self._mqtt.client.publish("status/imager", '{"status":"Dead"}')
+            self._camera.close()
+            self._pump.close()
+            self._mqtt.shutdown()
+            loguru.logger.success("Imager process shut down! See you!")
+
+    @loguru.logger.catch
+    def _handle_new_message(self) -> None:
+        """Handle a new message received over MQTT."""
+        assert self._mqtt is not None
+        if self._mqtt.msg is None:
+            return
+
+        loguru.logger.info("we received a new message")
+        if not self._mqtt.msg["topic"].startswith("imager/"):
             loguru.logger.error(
-                "The received message has an invalid pump direction: "
-                + f"{latest_message['pump_direction']}",
+                f"the received message was not for us! topic was {self._mqtt.msg['topic']}"
             )
-            self._mqtt.client.publish("status/imager", '{"status":"Error"}')
-            return
-        # TODO(ethanjli): add input validation to prevent an argument which doesn't convert to
-        # int/float from crashing the backend!
-        settings = stopflow.Settings(
-            total_images=int(latest_message["nb_frame"]),
-            stabilization_duration=float(latest_message["sleep"]),
-            pump=stopflow.DiscretePumpSettings(
-                direction=stopflow.PumpDirection(latest_message.get("pump_direction", "FORWARD")),
-                flowrate=float(latest_message.get("pump_flowrate", 2)),
-                volume=float(latest_message["volume"]),
-            ),
-        )
-
-        # Add/update some metadata fields
-        output_path = self._initialize_acquisition_directory(
-            metadata={
-                **self.__global_metadata,
-                "acq_local_datetime": datetime.datetime.now().isoformat().split(".")[0],
-                "acq_camera_shutter_speed": self.__exposure_time,
-                "acq_uuid": identity.load_machine_name(),
-                "sample_uuid": identity.load_machine_name(),
-            }
-        )
-        if output_path is None:
-            # An error status was already reported, so we don't need to do anything else
+            self._mqtt.read_message()
             return
 
-        self._routine = ImageAcquisitionRoutine(
-            stopflow.Routine(
-                self._pump,
-                self._camera,
-                output_path,
-                settings,
-            ),
-            self._mqtt,
-        )
-        self._routine.start()
+        latest_message = self._mqtt.msg["payload"]
+        loguru.logger.debug(latest_message)
+        action = self._mqtt.msg["payload"]["action"]
+        loguru.logger.debug(action)
 
-    def _initialize_acquisition_directory(
-        self,
-        metadata: dict[str, typing.Any],
-    ) -> typing.Optional[str]:
-        """Make the directory where images will be saved for the current image-acquisition routine.
+        if action == "update_config":
+            self._update_metadata(latest_message)
+        elif action == "image":
+            self._start_acquisition(latest_message)
+        elif action == "stop" and self._routine is not None:
+            self._routine.stop()
+            self._routine = None
+        self._mqtt.read_message()
 
-        Args:
-            metadata: a dict of all metadata to be associated with the acquisition. Must contain
-              keys "object_date", "sample_id", and "acq_id".
-
-        Returns:
-            The directory where captured images will be saved if preparation finished successfully,
-            or `None` otherwise.
-
-        Raises:
-            RuntimeError: this method was called before the MQTT client was started.
-        """
-        if self._mqtt is None:
-            raise RuntimeError("Imager MQTT client is not running yet")
-
-        loguru.logger.info("Setting up the directory structure for storing the pictures")
-
-        if "object_date" not in metadata:  # needed for the directory path
-            loguru.logger.error("The metadata did not contain object_date!")
-            self._mqtt.client.publish(
-                "status/imager",
-                '{"status":"Configuration update error: object_date is missing!"}',
-            )
-            return None
-
-        loguru.logger.debug(f"Metadata: {metadata}")
-
-        acq_dir_path = os.path.join(
-            self.__base_path,
-            metadata["object_date"],
-            str(metadata["sample_id"]).replace(" ", "_").strip("'"),
-            str(metadata["acq_id"]).replace(" ", "_").strip("'"),
-        )
-        if os.path.exists(acq_dir_path):
-            loguru.logger.error(f"Acquisition directory {acq_dir_path} already exists!")
-            self._mqtt.client.publish(
-                "status/imager",
-                '{"status":"Configuration update error: Chosen id are already in use!"}',
-            )
-            return None
-
-        os.makedirs(acq_dir_path)
-        loguru.logger.info("Saving metadata...")
-        metadata_filepath = os.path.join(acq_dir_path, "metadata.json")
-        with open(metadata_filepath, "w", encoding="utf-8") as metadata_file:
-            json.dump(metadata, metadata_file, indent=4)
-            loguru.logger.debug(f"Saved metadata to {metadata_file}: {metadata}")
-        integrity.create_integrity_file(acq_dir_path)
-        integrity.append_to_integrity_file(metadata_filepath)
-        return acq_dir_path
-
-    # copied #
-    def __message_update(self, latest_message):
-        if self._mqtt is None:
-            raise RuntimeError("imager mqtt client is not running yet")
+    def _update_metadata(self, latest_message: dict[str, typing.Any]) -> None:
+        """Handle a new imager command to update the configuration (i.e. the metadata)."""
+        assert self._mqtt is not None
 
         # FIXME(ethanjli): it'll be simpler if we just take the configuration as part of the command
         # to start image acquisition!
@@ -210,320 +147,135 @@ class ImagerProcess(multiprocessing.Process):
             return
 
         loguru.logger.info("Updating configuration...")
-        self.__global_metadata = latest_message["config"]
+        self._metadata = latest_message["config"]
         self._mqtt.client.publish("status/imager", '{"status":"Config updated"}')
         loguru.logger.info("Updated configuration!")
 
-    def __message_settings(self, latest_message):
-        if self._mqtt is None:
-            raise RuntimeError("imager mqtt client is not running yet")
+    # FIXME(ethanjli): reorder the methods!
+    def _start_acquisition(self, latest_message: dict[str, typing.Any]) -> None:
+        """Handle a new imager command to start image acquisition."""
+        assert self._mqtt is not None
+        assert self._pump is not None
+        assert self._camera is not None
 
-        if self._routine is not None:
-            loguru.logger.error("Can't update the camera settings during image acquisition!")
-            self._mqtt.client.publish("status/imager", '{"status":"Busy"}')
+        if (settings := _parse_acquisition_settings(latest_message)) is None:
+            self._mqtt.client.publish("status/imager", '{"status":"Error"}')
             return
-
-        if "settings" not in latest_message:
-            loguru.logger.error(f"Received message is missing field 'settings': {latest_message}")
-            self._mqtt.client.publish("status/imager", '{"status":"Camera settings error"}')
-            return
-
-        loguru.logger.info("Updating camera settings...")
-        settings = latest_message["settings"]
 
         try:
-            # FIXME(ethanjli): consolidate these into a single camera controls validation step
-            # and a single update step, e.g. using a dataclass
-            if "shutter_speed" in settings:
-                self.__message_settings_ss(settings)
-            if "white_balance_gain" in settings:
-                self.__message_settings_wb_gain(settings)
-            if "white_balance" in settings:
-                self.__message_settings_wb(settings)
-            if "image_gain" in settings:
-                self.__message_settings_image_gain(settings)
-        except ValueError:
-            # the methods above already returned an error response if an error occurred, in which
-            # case we don't want to send a success response
-            return
-
-        self._mqtt.client.publish("status/imager", '{"status":"Camera settings updated"}')
-        loguru.logger.info("Updated camera settings!")
-
-    def __message_settings_ss(self, settings):
-        if self._mqtt is None:
-            raise RuntimeError("imager mqtt client is not running yet")
-        if self._camera.controls is None:
-            raise RuntimeError("camera has not started yet")
-
-        self.__exposure_time = settings.get("shutter_speed", self.__exposure_time)
-        loguru.logger.debug(f"updating the camera shutter speed to {self.__exposure_time}")
-        try:
-            self._camera.controls.exposure_time = self.__exposure_time
-        except ValueError as e:
-            loguru.logger.error("the requested shutter speed is not valid!")
-            self._mqtt.client.publish(
-                "status/imager", '{"status":"Error: Shutter speed not valid"}'
-            )
-            raise e
-
-    def __message_settings_wb_gain(self, settings):
-        if self._mqtt is None:
-            raise RuntimeError("imager mqtt client is not running yet")
-        if self._camera.controls is None:
-            raise RuntimeError("camera has not started yet")
-
-        # fixme: use normal white-balance gains instead of the gains which are multiplied by 100 in
-        # the mqtt api
-
-        if "red" in settings["white_balance_gain"]:
-            red_gain = settings["white_balance_gain"]["red"] / 100
-            loguru.logger.debug(f"updating the camera white balance red gain to {red_gain}")
-            self.__white_balance_gain = (red_gain, self.__white_balance_gain[1])
-        if "blue" in settings["white_balance_gain"]:
-            blue_gain = settings["white_balance_gain"]["blue"] / 100
-            loguru.logger.debug(f"updating the camera white balance blue gain to {blue_gain}")
-            self.__white_balance_gain = (self.__white_balance_gain[0], blue_gain)
-        loguru.logger.debug(
-            f"updating the camera white balance gain to {self.__white_balance_gain}"
-        )
-        try:
-            self._camera.controls.white_balance_gains = self.__white_balance_gain
-        except ValueError as e:
-            loguru.logger.error("the requested white balance gain is not valid!")
-            self._mqtt.client.publish(
-                "status/imager",
-                '{"status":"Error: White balance gain not valid"}',
-            )
-            raise e
-
-    def __message_settings_wb(self, settings):
-        if self._mqtt is None:
-            raise RuntimeError("imager mqtt client is not running yet")
-        if self._camera.controls is None:
-            raise RuntimeError("camera has not started yet")
-
-        loguru.logger.debug(
-            f"updating the camera white balance mode to {settings['white_balance']}"
-        )
-        self.__white_balance_mode = settings.get("white_balance", self.__white_balance_mode)
-        loguru.logger.debug(
-            f"updating the camera white balance mode to {self.__white_balance_mode}"
-        )
-        try:
-            self._camera.controls.white_balance_mode = self.__white_balance_mode
-        except ValueError as e:
-            loguru.logger.error("the requested white balance is not valid!")
-            self._mqtt.client.publish(
-                "status/imager",
-                f'{"status":"Error: Invalid white balance mode {self.__white_balance_mode}"}',
-            )
-            raise e
-
-    def __message_settings_image_gain(self, settings):
-        if self._mqtt is None:
-            raise RuntimeError("imager mqtt client is not running yet")
-        if self._camera.controls is None:
-            raise RuntimeError("camera has not started yet")
-
-        if "analog" in settings["image_gain"]:
-            loguru.logger.debug(
-                f"updating the camera image analog gain to {settings['image_gain']}"
-            )
-            self.__image_gain = settings["image_gain"].get("analog", self.__image_gain)
-        loguru.logger.debug(f"updating the camera image gain to {self.__image_gain}")
-        try:
-            self._camera.controls.image_gain = self.__image_gain
-        except ValueError as e:
-            loguru.logger.error("the requested image gain is not valid!")
-            self._mqtt.client.publish(
-                "status/imager",
-                '{"status":"Error: Image gain not valid"}',
-            )
-            raise e
-
-    # copied #
-    @loguru.logger.catch
-    def handle_new_message(self) -> None:
-        """Handle a new message received over MQTT."""
-        if self._mqtt is None:
-            raise RuntimeError("imager mqtt client is not running yet")
-
-        loguru.logger.info("we received a new message")
-        if not self._mqtt.msg["topic"].startswith("imager/"):
-            loguru.logger.error(
-                f"the received message was not for us! topic was {self._mqtt.msg['topic']}"
-            )
-            self._mqtt.read_message()
-            return
-
-        if self._mqtt is None:
-            raise RuntimeError("imager mqtt client is not running yet")
-
-        latest_message = self._mqtt.msg["payload"]
-        loguru.logger.debug(latest_message)
-        action = self._mqtt.msg["payload"]["action"]
-        loguru.logger.debug(action)
-
-        if action == "update_config":
-            self.__message_update(latest_message)
-            self._mqtt.read_message()
-            return
-        if action == "settings":
-            self.__message_settings(latest_message)
-            self._mqtt.read_message()
-            return
-        if action == "stop":
-            if self._routine is not None:
-                self._routine.stop()
-                self._routine = None
-            self._mqtt.read_message()
-            return
-        if action == "image":
-            # {"action":"image","sleep":5,"volume":1,"nb_frame":200}
-            self._start_acquisition(latest_message)
-            self._mqtt.read_message()
-            return
-        if action == "":  # FIXME(ethanjli): is this case really needed?
-            self._mqtt.read_message()
-            return
-        loguru.logger.warning(
-            f"We did not understand the received request ({action}): {latest_message}"
-        )
-        self._mqtt.read_message()
-
-    # TODO replicate the remaining methods of the initial imager
-
-    ################################################################################
-    # While loop for capturing commands from Node-RED
-    ################################################################################
-    @loguru.logger.catch
-    def run(self):
-        """This is the function that needs to be started to create a thread"""
-        loguru.logger.info(f"The imager control thread has been started in process {os.getpid()}")
-        # MQTT Service connection
-        self._mqtt = mqtt.MQTT_Client(topic="imager/#", name="imager_client")
-        self._pump = MQTTPump()
-        self._pump.open()
-
-        self._mqtt.client.publish("status/imager", '{"status":"Starting up"}')
-
-        loguru.logger.info("Starting the camera and streaming server threads")
-        try:
-            # Note(ethanjli): the camera must be configured and started in the same process as
-            # anything which uses self.preview_stream, such as our StreamingHandler. This is because
-            # self.preview_stream does not synchronize state across independent processes! We also
-            # need the MQTT client to live in the same process as the camera, because the MQTT
-            # client directly accesses the camera controls (this keeps the code simpler than passing
-            # all camera settings queries/changes through a multiprocessing.Queue).
-            self._camera.open()
-            self._announce_camera_name()
-
-        except Exception as e:
-            loguru.logger.exception(f"An exception has occured when starting up picamera2: {e}")
-            try:
-                self._camera.close()
-                self._camera.open()
-                self._announce_camera_name()
-            except Exception as e_second:
-                loguru.logger.exception(
-                    f"A second exception has occured when starting up picamera2: {e_second}"
-                )
-                loguru.logger.error("This error can't be recovered from, terminating now")
-                raise e_second
-
-        if self._camera.controls is None:
-            raise RuntimeError("Camera was unable to start")
-
-        loguru.logger.info("Initialising the camera with the default settings...")
-        # TODO identify the camera parameters that can be accessed and initialize them
-        time.sleep(0.1)  # FIXME: block on the camera until the controls are ready?
-        self._camera.controls.exposure_time = self.__exposure_time
-        time.sleep(0.1)
-        self._camera.controls.exposure_mode = self.__exposure_mode
-        time.sleep(0.1)
-        self._camera.controls.white_balance_mode = self.__white_balance_mode
-        time.sleep(0.1)
-        self._camera.controls.white_balance_gains = self.__white_balance_gain
-        time.sleep(0.1)
-        self._camera.controls.image_gain = self.__image_gain
-
-        # if self._camera.sensor_name == "IMX219":  # Camera v2.1
-        #     self.__resolution = (3280, 2464)
-        # elif self._camera.sensor_name == "IMX477":  # Camera HQ
-        #     self.__resolution = (4056, 3040)
-        # else:
-        #     self.__resolution = (1280, 1024)
-        #     loguru.logger.error(
-        #         f"The connected camera {self._camera.sensor_name} is not recognized, "
-        #         + "please check your camera"
-        #     )
-
-        try:
-            address = ("", 8000)
-            server = mjpeg.StreamingServer(self.preview_stream, address)
-            # FIXME(ethanjli): make this not be a daemon thread, by recovering resourcse
-            # appropriately at shutdown!
-            self._streaming_thread = threading.Thread(target=server.serve_forever, daemon=True)
-            self._streaming_thread.start()
-
-            # Publish the status "Ready" to Node-RED via MQTT
-            self._mqtt.client.publish("status/imager", '{"status":"Ready"}')
-
-            loguru.logger.success("Camera is READY!")
-
-            # Move to the state of getting ready to start instead of stop by default
-            # self.__imager.change(planktoscope.imagernew.state_machine.Imaging)
-
-            # While loop for capturing commands from Node-RED (later! the display is prior)
-            while not self.stop_event.is_set():
-                if self._routine is not None and not self._routine.is_alive():
-                    # Garbage-collect any finished image-acquisition routine threads so that we're
-                    # ready for the next configuration update command which arrives:
-                    self._routine.stop()
-                    self._routine = None
-                if not self._mqtt.new_message_received():
-                    time.sleep(0.1)
-                    continue
-
-                self.handle_new_message()
-
-        finally:
-            loguru.logger.info("Shutting down the imager process")
-            self._mqtt.client.publish("status/imager", '{"status":"Dead"}')
-            # NOTE the resource release task of the camera is handled within the thread
-            # loguru.logger.debug("Stopping picamera and its thread")
-            # self.shutdown_event.set()
-            # self._camera.stop()
-            # self._camera.close()
-            self._pump.close()
-            loguru.logger.debug("Stopping the streaming thread")
-            server.shutdown()
-            loguru.logger.debug("Stopping MQTT")
-            self._mqtt.shutdown()
-            loguru.logger.success("Imager process shut down! See you!")
-
-    def _announce_camera_name(self) -> None:
-        """Announce the camera's sensor name as a status update."""
-        if self._mqtt is None:
-            raise RuntimeError("Imager MQTT client is not running yet")
-        if self._camera.controls is None:
-            raise RuntimeError("Camera has not started yet")
-
-        camera_names = {
-            "IMX219": "Camera v2.1",
-            "IMX477": "Camera HQ",
-        }
-        self._mqtt.client.publish(
-            "status/imager",
-            json.dumps(
+            output_path = _initialize_acquisition_directory(
+                "/home/pi/data/img",
                 {
-                    "camera_name": camera_names.get(
-                        self._camera.controls.sensor_name, "Not recognized"
-                    ),
-                }
+                    **self._metadata,
+                    "acq_local_datetime": datetime.datetime.now().isoformat().split(".")[0],
+                    "acq_camera_shutter_speed": self._camera._exposure_time,
+                    "acq_uuid": identity.load_machine_name(),
+                    "sample_uuid": identity.load_machine_name(),
+                },
+            )
+        except ValueError as e:
+            self._mqtt.client.publish(
+                "status/imager",
+                json.dumps({"status": f"Configuration update error: {str(e)}"}),
+            )
+        if output_path is None:
+            # An error status was already reported, so we don't need to do anything else
+            return
+
+        self._routine = ImageAcquisitionRoutine(
+            stopflow.Routine(self._pump, self._camera.camera, output_path, settings),
+            self._mqtt,
+        )
+        self._routine.start()
+
+
+def _parse_acquisition_settings(
+    latest_message: dict[str, typing.Any],
+) -> typing.Optional[stopflow.Settings]:
+    """Parse a command to start acquisition into stop-flow settings.
+
+    Returns:
+        A [stopflow.Settings] with the parsed settings if input validation and parsing succeeded,
+        or `None` otherwise.
+    """
+    for field in ("nb_frame", "sleep", "volume", "pump_direction"):
+        if field not in latest_message:
+            loguru.logger.error(
+                f"The received message is missing field '{field}': {latest_message}"
+            )
+            return None
+
+    if latest_message["pump_direction"] not in stopflow.PumpDirection.__members__:
+        loguru.logger.error(
+            "The received message has an invalid pump direction: "
+            + f"{latest_message['pump_direction']}",
+        )
+        return None
+
+    try:
+        return stopflow.Settings(
+            total_images=int(latest_message["nb_frame"]),
+            stabilization_duration=float(latest_message["sleep"]),
+            pump=stopflow.DiscretePumpSettings(
+                direction=stopflow.PumpDirection(latest_message.get("pump_direction", "FORWARD")),
+                flowrate=float(latest_message.get("pump_flowrate", 2)),
+                volume=float(latest_message["volume"]),
             ),
         )
+    except ValueError:
+        loguru.logger.exception("Invalid input")
+        return None
+
+
+def _initialize_acquisition_directory(
+    base_path: str,
+    metadata: dict[str, typing.Any],
+) -> typing.Optional[str]:
+    """Make the directory where images will be saved for the current image-acquisition routine.
+
+    This also saves the metadata to a `metadata.json` file and initializes a file integrity log in
+    the directory.
+
+    Args:
+        base_path: directory under which a subdirectory tree will be created for the image
+          acquisition.
+        metadata: a dict of all metadata to be associated with the acquisition. Must contain
+          keys "object_date", "sample_id", and "acq_id".
+
+    Returns:
+        The directory where captured images will be saved if preparation finished successfully,
+        or `None` otherwise.
+
+    Raises:
+        ValueError: Acquisition directory initialization failed.
+    """
+    loguru.logger.info("Setting up the directory structure for storing the pictures")
+
+    if "object_date" not in metadata:  # needed for the directory path
+        loguru.logger.error("The metadata did not contain object_date!")
+        raise ValueError("object_date is missing!")
+
+    loguru.logger.debug(f"Metadata: {metadata}")
+
+    acq_dir_path = os.path.join(
+        base_path,
+        metadata["object_date"],
+        str(metadata["sample_id"]).replace(" ", "_").strip("'"),
+        str(metadata["acq_id"]).replace(" ", "_").strip("'"),
+    )
+    if os.path.exists(acq_dir_path):
+        loguru.logger.error(f"Acquisition directory {acq_dir_path} already exists!")
+        raise ValueError("Chosen id are already in use!")
+
+    os.makedirs(acq_dir_path)
+    loguru.logger.info("Saving metadata...")
+    metadata_filepath = os.path.join(acq_dir_path, "metadata.json")
+    with open(metadata_filepath, "w", encoding="utf-8") as metadata_file:
+        json.dump(metadata, metadata_file, indent=4)
+        loguru.logger.debug(f"Saved metadata to {metadata_file}: {metadata}")
+    integrity.create_integrity_file(acq_dir_path)
+    integrity.append_to_integrity_file(metadata_filepath)
+    return acq_dir_path
 
 
 class ImageAcquisitionRoutine(threading.Thread):
@@ -568,7 +320,6 @@ class ImageAcquisitionRoutine(threading.Thread):
                 + f'saved to {filename}"}}',
             )
 
-    # FIXME(ethanjli): implement a stop method
     def stop(self) -> None:
         """Stop the thread.
 
@@ -631,9 +382,8 @@ class MQTTPump:
             self._mqtt.client.unsubscribe("status/pump")
             self._mqtt.read_message()
             self._done.set()
-            if not self._discrete_run.locked():
-                continue
-            self._discrete_run.release()
+            if self._discrete_run.locked():
+                self._discrete_run.release()
 
     def run_discrete(self, settings: stopflow.DiscretePumpSettings) -> None:
         """Run the pump for a discrete volume at the specified flow rate and direction.
@@ -698,4 +448,272 @@ class MQTTPump:
         self._discrete_run.release()
 
 
-# FIXME(ethanjli): split off the camera MQTT API into a separate class
+# TODO(ethanjli): split off the camera MQTT API into a separate subpackage, and also move the
+# picamera2 wrapper into that subpackage
+class MQTTCamera:
+    """Camera with MQTT API for adjusting camera settings.
+
+    Attribs:
+        camera: the underlying camera exposed by this MQTT API.
+    """
+
+    def __init__(
+        self,
+        hardware_config: dict[str, typing.Any],
+        # FIXME(ethanjli): handle exposure time and ISO in hardware config instead of keyword args!
+        # exposure_time: int = 125,
+        exposure_time: int = 15000,
+        # iso: int = 100,
+    ) -> None:
+        """Initialize the backend.
+
+        Args:
+            hardware_config: a dict of camera control settings.
+            mqtt_client: an MQTT client.
+            exposure_time: the default value for initializing the camera's exposure time.
+        """
+        # Settings
+        # self.__camera_type = hardware_config.get("camera_type", "v2.1")
+        # self.__resolution = None  # this is set by the start method
+        # FIXME: consolidate all camera settings into a dataclass or namedtuple!
+        # self.__iso = iso
+        self._exposure_time = exposure_time  # FIXME(ethanjli): load from hardware config?
+        self.__exposure_mode: camera.ExposureModes = "normal"  # FIXME(ethanjli): default to "off"?
+        self.__white_balance_mode: camera.WhiteBalanceModes = "off"
+        self.__white_balance_gain = (
+            hardware_config.get("red_gain", 2.00),
+            hardware_config.get("blue_gain", 1.40),
+        )
+        self.__image_gain = hardware_config.get("analog_gain", 1.00)
+
+        # I/O
+        self._preview_stream: camera.PreviewStream = camera.PreviewStream()
+        self.camera: camera.PiCamera = camera.PiCamera(self._preview_stream)
+        self._streaming_server: typing.Optional[mjpeg.StreamingServer] = None
+        self._streaming_thread: typing.Optional[threading.Thread] = None
+        self._mqtt: typing.Optional[mqtt.MQTT_Client] = None
+        self._mqtt_receiver_thread: typing.Optional[threading.Thread] = None
+        self._mqtt_receiver_close = threading.Event()  # close() was called
+
+    def open(self) -> None:
+        """Start the camera and MJPEG preview stream."""
+        loguru.logger.info("Initializing the camera with default settings...")
+        self.camera.open()
+        if self.camera.controls is None:
+            raise RuntimeError("Camera was unable to start")
+
+        # FIXME(ethanjli): simplify initialization of camera settings
+        time.sleep(0.1)
+        self.camera.controls.exposure_time = self._exposure_time
+        time.sleep(0.1)
+        self.camera.controls.exposure_mode = self.__exposure_mode
+        time.sleep(0.1)
+        self.camera.controls.white_balance_mode = self.__white_balance_mode
+        time.sleep(0.1)
+        self.camera.controls.white_balance_gains = self.__white_balance_gain
+        time.sleep(0.1)
+        self.camera.controls.image_gain = self.__image_gain
+
+        # if self.camera.sensor_name == "IMX219":  # Camera v2.1
+        #     self.__resolution = (3280, 2464)
+        # elif self.camera.sensor_name == "IMX477":  # Camera HQ
+        #     self.__resolution = (4056, 3040)
+        # else:
+        #     self.__resolution = (1280, 1024)
+        #     loguru.logger.error(
+        #         f"The connected camera {self.camera.sensor_name} is not recognized, "
+        #         + "please check your camera"
+        #     )
+
+        loguru.logger.info("Starting the MJPEG streaming server...")
+        address = ("", 8000)  # FIXME(ethanjli): parameterize this
+        self._streaming_server = mjpeg.StreamingServer(self._preview_stream, address)
+        # FIXME(ethanjli): make this not be a daemon thread, by recovering resourcse
+        # appropriately at shutdown!
+        self._streaming_thread = threading.Thread(target=self._streaming_server.serve_forever)
+        self._streaming_thread.start()
+
+        loguru.logger.info("Starting the MQTT backend...")
+        # FIXME(ethanjli): expose the camera settings over "camera/settings" instead!
+        self._mqtt = mqtt.MQTT_Client(topic="imager/image", name="imager_camera_client")
+        self._mqtt_receiver_close.clear()
+        self._mqtt_receiver_thread = threading.Thread(target=self._receive_messages)
+        self._mqtt_receiver_thread.start()
+        self._announce_camera_name()
+
+    def _receive_messages(self) -> None:
+        """Update internal state based on pump status updates received over MQTT."""
+        assert self._mqtt is not None
+
+        while not self._mqtt_receiver_close.is_set():
+            if not self._mqtt.new_message_received():
+                time.sleep(0.1)
+                continue
+            loguru.logger.debug(self._mqtt.msg)
+            if (message := self._mqtt.msg) is None or message["topic"] != "imager/image":
+                continue
+            if message["payload"].get("action", "") != "settings":
+                continue
+            if "settings" not in message["payload"]:
+                loguru.logger.error(f"Received message is missing field 'settings': {message}")
+                self._mqtt.client.publish("status/imager", '{"status":"Camera settings error"}')
+                continue
+
+            loguru.logger.info("Updating camera settings...")
+            settings = message["payload"]["settings"]
+            self._mqtt.read_message()
+            try:
+                # FIXME(ethanjli): consolidate these into a single camera controls validation step
+                # and a single update step, e.g. using a dataclass
+                if "shutter_speed" in settings:
+                    self.__message_settings_ss(settings)
+                if "white_balance_gain" in settings:
+                    self.__message_settings_wb_gain(settings)
+                if "white_balance" in settings:
+                    self.__message_settings_wb(settings)
+                if "image_gain" in settings:
+                    self.__message_settings_image_gain(settings)
+            except ValueError:
+                # the methods above already returned an error response if an error occurred, in
+                # which case we don't want to send a success response
+                continue
+
+            self._mqtt.client.publish("status/imager", '{"status":"Camera settings updated"}')
+            loguru.logger.info("Updated camera settings!")
+
+    def __message_settings_ss(self, settings):
+        assert self._mqtt is not None
+
+        if self.camera.controls is None:
+            raise RuntimeError("camera has not started yet")
+
+        self._exposure_time = settings.get("shutter_speed", self._exposure_time)
+        loguru.logger.debug(f"updating the camera shutter speed to {self._exposure_time}")
+        try:
+            self.camera.controls.exposure_time = self._exposure_time
+        except ValueError as e:
+            loguru.logger.error("the requested shutter speed is not valid!")
+            self._mqtt.client.publish(
+                "status/imager", '{"status":"Error: Shutter speed not valid"}'
+            )
+            raise e
+
+    def __message_settings_wb_gain(self, settings):
+        assert self._mqtt is not None
+        if self.camera.controls is None:
+            raise RuntimeError("camera has not started yet")
+
+        # fixme: use normal white-balance gains instead of the gains which are multiplied by 100 in
+        # the mqtt api
+
+        if "red" in settings["white_balance_gain"]:
+            red_gain = settings["white_balance_gain"]["red"] / 100
+            loguru.logger.debug(f"updating the camera white balance red gain to {red_gain}")
+            self.__white_balance_gain = (red_gain, self.__white_balance_gain[1])
+        if "blue" in settings["white_balance_gain"]:
+            blue_gain = settings["white_balance_gain"]["blue"] / 100
+            loguru.logger.debug(f"updating the camera white balance blue gain to {blue_gain}")
+            self.__white_balance_gain = (self.__white_balance_gain[0], blue_gain)
+        loguru.logger.debug(
+            f"updating the camera white balance gain to {self.__white_balance_gain}"
+        )
+        try:
+            self.camera.controls.white_balance_gains = self.__white_balance_gain
+        except ValueError as e:
+            loguru.logger.error("the requested white balance gain is not valid!")
+            self._mqtt.client.publish(
+                "status/imager",
+                '{"status":"Error: White balance gain not valid"}',
+            )
+            raise e
+
+    def __message_settings_wb(self, settings):
+        assert self._mqtt is not None
+        if self.camera.controls is None:
+            raise RuntimeError("camera has not started yet")
+
+        loguru.logger.debug(
+            f"updating the camera white balance mode to {settings['white_balance']}"
+        )
+        self.__white_balance_mode = settings.get("white_balance", self.__white_balance_mode)
+        loguru.logger.debug(
+            f"updating the camera white balance mode to {self.__white_balance_mode}"
+        )
+        try:
+            self.camera.controls.white_balance_mode = self.__white_balance_mode
+        except ValueError as e:
+            loguru.logger.error("the requested white balance is not valid!")
+            self._mqtt.client.publish(
+                "status/imager",
+                f'{"status":"Error: Invalid white balance mode {self.__white_balance_mode}"}',
+            )
+            raise e
+
+    def __message_settings_image_gain(self, settings):
+        assert self._mqtt is not None
+        if self.camera.controls is None:
+            raise RuntimeError("camera has not started yet")
+
+        if "analog" in settings["image_gain"]:
+            loguru.logger.debug(
+                f"updating the camera image analog gain to {settings['image_gain']}"
+            )
+            self.__image_gain = settings["image_gain"].get("analog", self.__image_gain)
+        loguru.logger.debug(f"updating the camera image gain to {self.__image_gain}")
+        try:
+            self.camera.controls.image_gain = self.__image_gain
+        except ValueError as e:
+            loguru.logger.error("the requested image gain is not valid!")
+            self._mqtt.client.publish(
+                "status/imager",
+                '{"status":"Error: Image gain not valid"}',
+            )
+            raise e
+
+    # TODO(ethanjli): allow an MQTT client to trigger this method with an MQTT command
+    def _announce_camera_name(self) -> None:
+        """Announce the camera's sensor name as a status update."""
+        assert self._mqtt is not None
+        assert self.camera.controls is not None
+
+        camera_names = {
+            "IMX219": "Camera v2.1",
+            "IMX477": "Camera HQ",
+        }
+        self._mqtt.client.publish(
+            "status/imager",
+            json.dumps(
+                {
+                    "camera_name": camera_names.get(
+                        self.camera.controls.sensor_name, "Not recognized"
+                    ),
+                }
+            ),
+        )
+
+    def close(self) -> None:
+        """Close the camera, if it's currently open.
+
+        Stops the MQTTT receiver thread, the MJPEG streaming server, and the camera and block until
+        they all finish.
+        """
+        if self._mqtt is not None:
+            loguru.logger.info("Stopping the MQTT API...")
+            self._mqtt_receiver_close.set()
+            if self._mqtt_receiver_thread is not None:
+                self._mqtt_receiver_thread.join()
+            self._mqtt_receiver_thread = None
+            self._mqtt.shutdown()
+            self._mqtt = None
+
+        if self._streaming_server is not None:
+            loguru.logger.info("Stopping the MJPEG streaming server...")
+            self._streaming_server.shutdown()
+            self._streaming_server.server_close()
+            if self._streaming_thread is not None:
+                self._streaming_thread.join()
+                self._streaming_thread = None
+            self._streaming_server = None
+
+        loguru.logger.info("Stopping the camera...")
+        self.camera.close()

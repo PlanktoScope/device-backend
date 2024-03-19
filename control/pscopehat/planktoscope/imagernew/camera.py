@@ -32,8 +32,8 @@ class PiCamera:
             preview_output: an image stream which this `PiCamera` instance will write camera preview
               images to.
             preview_size: the width and height (in pixels) of the camera preview.
-            preview_bitrate: the bitrate of the preview stream; defaults to a bitrate for a medium
-              quality stream.
+            preview_bitrate: the bitrate (in bits/sec) of the preview stream; defaults to a bitrate
+              for a high-quality stream.
         """
         self.controls: typing.Optional[Controls] = None
 
@@ -84,22 +84,6 @@ class PiCamera:
             name="lores",
         )
 
-    def close(self) -> None:
-        """Stop and close the camera.
-
-        The camera can be restarted after being closed by `start()` method again.
-        """
-        if self._camera is None:
-            return
-
-        loguru.logger.debug("Stopping the camera...")
-        self._camera.stop_recording()
-
-        loguru.logger.debug("Closing the camera...")
-        self._camera.close()
-        self._camera = None
-        self.controls = None
-
     def capture_file(self, path: str) -> None:
         """Capture an image from the main stream (in full resolution) and save it as a file.
 
@@ -127,6 +111,22 @@ class PiCamera:
             f"Image metadata: {request.get_metadata()}"  # pylint: disable=no-member
         )
         request.release()  # pylint: disable=no-member
+
+    def close(self) -> None:
+        """Stop and close the camera.
+
+        The camera can be restarted after being closed by `start()` method again.
+        """
+        if self._camera is None:
+            return
+
+        loguru.logger.debug("Stopping the camera...")
+        self._camera.stop_recording()
+
+        loguru.logger.debug("Closing the camera...")
+        self._camera.close()
+        self._camera = None
+        self.controls = None
 
 
 ExposureModes = typing.Literal["off", "normal", "short", "long"]

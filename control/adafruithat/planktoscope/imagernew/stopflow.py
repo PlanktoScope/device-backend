@@ -60,6 +60,7 @@ class Settings(typing.NamedTuple):
     pump: DiscretePumpSettings
 
 
+# FIXME(ethanjli): write unit tests for this class!
 class Routine:
     """A thread-safe stop-flow image acquisition routine.
 
