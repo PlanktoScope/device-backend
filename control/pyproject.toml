@@ -282,6 +282,10 @@ max-line-length = 100
 
 [tool.pylint.MASTER]
 disable = [
+  # Until we upgrade to python 3.10 on the RPi (by upgrading to bookworm), we can't use alternative
+  # union syntax; but GitHub Actions CI runs python3.10, so we need to suppress this warning to pass
+  # CI checks:
+  "consider-alternative-union-syntax",
   # Until we can import RPi-specific libraries when running checks in Docker or in a linter, we
   # can't accurately check for invalid imports on non-RPi computers:
   "import-error",
