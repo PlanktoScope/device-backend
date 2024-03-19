@@ -60,7 +60,6 @@ class Settings(typing.NamedTuple):
     pump: DiscretePumpSettings
 
 
-# FIXME(ethanjli): write unit tests for this class!
 class Routine:
     """A thread-safe stop-flow image acquisition routine.
 
@@ -74,19 +73,19 @@ class Routine:
 
     def __init__(
         self,
-        pump: PumpRunner,
-        camera: FileCapturer,
         output_path: str,
         settings: Settings,
+        pump: PumpRunner,
+        camera: FileCapturer,
     ) -> None:
         """Initialize the image-acquisition routine.
 
         Args:
-            pump: the sample pump.
-            camera: the camera.
             output_path: the directory to save acquired images and metadata files. This is assumed
               not to exist.
             settings: stop-flow routine settings.
+            pump: the sample pump.
+            camera: the camera.
         """
         # Parameters
         self.output_path: typing.Final[str] = output_path

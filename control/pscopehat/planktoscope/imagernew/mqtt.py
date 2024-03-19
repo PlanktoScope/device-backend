@@ -21,7 +21,7 @@ loguru.logger.info("planktoscope.imager is loaded")
 class Worker(multiprocessing.Process):
     """An MQTT+MJPEG API for the PlanktoScope's camera and image acquisition modules."""
 
-    # FIXME(ethanjli): instead of passing in a stop_event, just expose a `close()` method! This
+    # TODO(ethanjli): instead of passing in a stop_event, just expose a `close()` method! This
     # way, we don't give any process the ability to stop all other processes watching the same
     # stop_event!
     def __init__(self, stop_event):
@@ -36,29 +36,15 @@ class Worker(multiprocessing.Process):
 
         loguru.logger.info("planktoscope.imager is initializing")
 
-        # FIXME(ethanjli): move this to self._camera if only self._camera needs these settings;
-        # ideally decompose config-loading to a separate module. That module should also be where
-        # the file schema is defined!
-        if os.path.exists("/home/pi/PlanktoScope/hardware.json"):
-            # load hardware.json
-            with open("/home/pi/PlanktoScope/hardware.json", "r", encoding="utf-8") as config_file:
-                self._hardware_config = json.load(config_file)
-                loguru.logger.debug(
-                    f"Loaded hardware configuration loaded: {self._hardware_config}",
-                )
-        else:
-            loguru.logger.info("The hardware configuration file doesn't exist, using defaults!")
-            self._hardware_config = {}
-
         # Internal state
         self._stop_event_loop = stop_event
         self._metadata: dict[str, typing.Any] = {}
-        self._routine: typing.Optional[ImageAcquisitionRoutine] = None
+        self._active_routine: typing.Optional[ImageAcquisitionRoutine] = None
 
         # I/O
         self._mqtt: typing.Optional[mqtt.MQTT_Client] = None
-        self._pump: typing.Optional[_MQTTPump] = None
-        # FIXME(ethanjli): instead of having the ImagerWorker start the camera worker, this should
+        self._pump: typing.Optional[_PumpClient] = None
+        # TODO(ethanjli): instead of having the ImagerWorker start the camera worker, this should
         # be started from the main script; and then the camera object should be passed into the
         # constructor.
         self._camera: typing.Optional[camera.Worker] = None
@@ -73,23 +59,23 @@ class Worker(multiprocessing.Process):
         self._mqtt.client.publish("status/imager", '{"status":"Starting up"}')
 
         loguru.logger.info("Starting the pump RPC client...")
-        self._pump = _MQTTPump()
+        self._pump = _PumpClient()
         self._pump.open()
         loguru.logger.success("Pump RPC client is ready!")
 
         loguru.logger.info("Starting the camera...")
-        self._camera = camera.Worker(self._hardware_config)
+        self._camera = camera.Worker()
         self._camera.open()
         loguru.logger.success("Camera is ready!")
         self._mqtt.client.publish("status/imager", '{"status":"Ready"}')
 
         try:
             while not self._stop_event_loop.is_set():
-                if self._routine is not None and not self._routine.is_alive():
+                if self._active_routine is not None and not self._active_routine.is_alive():
                     # Garbage-collect any finished image-acquisition routine threads so that we're
                     # ready for the next configuration update command which arrives:
-                    self._routine.stop()
-                    self._routine = None
+                    self._active_routine.stop()
+                    self._active_routine = None
 
                 if not self._mqtt.new_message_received():
                     time.sleep(0.1)
@@ -127,18 +113,20 @@ class Worker(multiprocessing.Process):
             self._update_metadata(latest_message)
         elif action == "image":
             self._start_acquisition(latest_message)
-        elif action == "stop" and self._routine is not None:
-            self._routine.stop()
-            self._routine = None
+        elif action == "stop" and self._active_routine is not None:
+            self._active_routine.stop()
+            self._active_routine = None
         self._mqtt.read_message()
 
     def _update_metadata(self, latest_message: dict[str, typing.Any]) -> None:
         """Handle a new imager command to update the configuration (i.e. the metadata)."""
         assert self._mqtt is not None
 
-        # FIXME(ethanjli): it'll be simpler if we just take the configuration as part of the command
-        # to start image acquisition!
-        if self._routine is not None and self._routine.is_alive():
+        # TODO(ethanjli): it'll be simpler if we just take the configuration as part of the command
+        # to start image acquisition! This requires modifying the MQTT API (to remove the
+        # "update_config" action and require the client to pass the metadata with the "image"
+        # action), so we'll do it later.
+        if self._active_routine is not None and self._active_routine.is_alive():
             loguru.logger.error("Can't update configuration during image acquisition!")
             self._mqtt.client.publish("status/imager", '{"status":"Busy"}')
             return
@@ -153,7 +141,6 @@ class Worker(multiprocessing.Process):
         self._mqtt.client.publish("status/imager", '{"status":"Config updated"}')
         loguru.logger.info("Updated configuration!")
 
-    # FIXME(ethanjli): reorder the methods!
     def _start_acquisition(self, latest_message: dict[str, typing.Any]) -> None:
         """Handle a new imager command to start image acquisition."""
         assert self._mqtt is not None
@@ -170,6 +157,7 @@ class Worker(multiprocessing.Process):
                 {
                     **self._metadata,
                     "acq_local_datetime": datetime.datetime.now().isoformat().split(".")[0],
+                    # FIXME(ethanjli): query the exposure time using a publicly-exposed property
                     "acq_camera_shutter_speed": self._camera._exposure_time,
                     "acq_uuid": identity.load_machine_name(),
                     "sample_uuid": identity.load_machine_name(),
@@ -184,11 +172,11 @@ class Worker(multiprocessing.Process):
             # An error status was already reported, so we don't need to do anything else
             return
 
-        self._routine = ImageAcquisitionRoutine(
-            stopflow.Routine(self._pump, self._camera.camera, output_path, settings),
+        self._active_routine = ImageAcquisitionRoutine(
+            stopflow.Routine(output_path, settings, self._pump, self._camera.camera),
             self._mqtt,
         )
-        self._routine.start()
+        self._active_routine.start()
 
 
 def _parse_acquisition_settings(
@@ -284,9 +272,15 @@ class ImageAcquisitionRoutine(threading.Thread):
     """A thread to run a single image acquisition routine to completion, with MQTT updates."""
 
     # TODO(ethanjli): instead of taking an arg of type mqtt.MQTT_CLIENT, just take an arg of
-    # whatever `mqtt_client.client`'s type is supposed to be
+    # whatever `mqtt_client.client`'s type is supposed to be. Or maybe we should just initialize
+    # our own MQTT client in here?
     def __init__(self, routine: stopflow.Routine, mqtt_client: mqtt.MQTT_Client) -> None:
-        """Initialize the thread."""
+        """Initialize the thread.
+
+        Args:
+            routine: the image-acquisition routine to run.
+            mqtt_client: an MQTT client which will be used to broadcast updates.
+        """
         super().__init__()
         self._routine = routine
         self._mqtt_client = mqtt_client.client
@@ -337,7 +331,7 @@ class ImageAcquisitionRoutine(threading.Thread):
 # TODO(ethanjli): rearchitect the hardware controller so that the imager can directly call pump
 # methods (by running all modules in the same process), so that we can just delete this entire class
 # and simplify function calls between the imager and the pump!
-class _MQTTPump:
+class _PumpClient:
     """Thread-safe RPC stub for remotely controlling the pump over MQTT."""
 
     def __init__(self) -> None:

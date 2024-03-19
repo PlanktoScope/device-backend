@@ -35,19 +35,14 @@ class PiCamera:
             preview_bitrate: the bitrate (in bits/sec) of the preview stream; defaults to a bitrate
               for a high-quality stream.
         """
-        self.controls: typing.Optional[Controls] = None
-
-        self._preview_output = preview_output
-        # Note(ethanjli): `__init__()` may be called from a different process than the one which
-        # will call the `start()` method, so we must initialize `self._camera` to None here, and
-        # we'll properly initialize it in the `start()` method:
-        self._camera: typing.Optional[picamera2.Picamera2] = None
-
-        # TODO(ethanjli): Delete these if we actually don't need them:
-        # self._main_format: typing.Optional[str] = None
-        # self._main_size: typing.Optional[tuple[int, int]] = None
+        # Settings
         self._preview_size: tuple[int, int] = preview_size
         self._preview_bitrate: typing.Optional[int] = preview_bitrate
+
+        # I/O
+        self._preview_output = preview_output
+        self._camera: typing.Optional[picamera2.Picamera2] = None
+        self.controls: typing.Optional[Controls] = None
 
     def open(self) -> None:
         """Start the camera in the background, including output to the preview stream."""
@@ -65,10 +60,6 @@ class PiCamera:
             buffer_count=3,
         )
         loguru.logger.debug(f"Camera configuration: {config}")
-        # TODO(ethanjli): Delete these if we actually don't need them:
-        # self._main_format = config["main"]["format"]
-        # self._main_size = config["main"]["size"]
-        # self._preview_size = config["preview"]["size"]
         self._camera.configure(config)
 
         self.controls = Controls(self._camera, config["controls"]["FrameDurationLimits"])
@@ -135,6 +126,7 @@ WhiteBalanceModes = typing.Literal[
 ]
 
 
+# FIXME(ethanjli): simplify this class!
 class Controls:
     """A wrapper to simplify setting and querying of camera controls & properties."""
 
@@ -309,12 +301,12 @@ class Controls:
         self._image_gain = gain
         self._camera.controls.AnalogueGain = self._image_gain  # DigitalGain
 
-    # TODO(ethanjli): Delete this if we actually don't need it:
+    # FIXME(ethanjli): Delete this if we actually don't need it:
     # @property
     # def image_quality(self):
     #     return self.__image_quality
 
-    # TODO(ethanjli): Delete this if we actually don't need it:
+    # FIXME(ethanjli): Delete this if we actually don't need it:
     # @image_quality.setter
     # def image_quality(self, image_quality):
     #     """Change the output image quality
@@ -331,8 +323,6 @@ class Controls:
     #             f"The output image quality specified ({image_quality}) is not valid"
     #         )
     #         raise ValueError
-
-    # TODO complete (if needed) the setters and getters of resolution & iso
 
 
 class PreviewStream(io.BufferedIOBase):

@@ -47,6 +47,9 @@ class _StreamingHandler(server.BaseHTTPRequestHandler):
             return
 
         if self.path == "/stream.mjpg":
+            # TODO(ethanjli): allow specifying a max framerate via HTTP GET query param? Currently
+            # we have no way to reduce bandwidth usage below the maximum supported by the network
+            # connection to the client.
             self._send_mjpeg_header()
             try:
                 while True:

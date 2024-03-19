@@ -1,6 +1,7 @@
 """mqtt provides an MJPEG+MQTT API for camera interaction."""
 
 import json
+import os
 import threading
 import time
 import typing
@@ -13,6 +14,7 @@ from planktoscope.camera import hardware, mjpeg
 loguru.logger.info("planktoscope.imager is loaded")
 
 
+# FIXME(ethanjli): simplify this class
 class Worker:
     """Runs a camera with live MJPEG preview and an MQTT API for adjusting camera settings.
 
@@ -22,7 +24,6 @@ class Worker:
 
     def __init__(
         self,
-        hardware_config: dict[str, typing.Any],
         # FIXME(ethanjli): handle exposure time and ISO in hardware config instead of keyword args!
         exposure_time: int = 125,
         # exposure_time: int = 15000,
@@ -31,14 +32,25 @@ class Worker:
         """Initialize the backend.
 
         Args:
-            hardware_config: a dict of camera control settings.
             mqtt_client: an MQTT client.
             exposure_time: the default value for initializing the camera's exposure time.
         """
         # Settings
+        # FIXME(ethanjli): decompose config-loading to a separate module. That module should also be
+        # where the file schema is defined!
+        if os.path.exists("/home/pi/PlanktoScope/hardware.json"):
+            # load hardware.json
+            with open("/home/pi/PlanktoScope/hardware.json", "r", encoding="utf-8") as config_file:
+                hardware_config = json.load(config_file)
+                loguru.logger.debug(
+                    f"Loaded hardware configuration loaded: {hardware_config}",
+                )
+        else:
+            loguru.logger.info("The hardware configuration file doesn't exist, using defaults!")
+            hardware_config = {}
         # self.__camera_type = hardware_config.get("camera_type", "v2.1")
         # self.__resolution = None  # this is set by the start method
-        # FIXME: consolidate all camera settings into a dataclass or namedtuple!
+        # FIXME(ethanjli): consolidate all camera settings into a dataclass or namedtuple!
         # self.__iso = iso
         self._exposure_time = exposure_time  # FIXME(ethanjli): load from hardware config?
         self.__exposure_mode: hardware.ExposureModes = (
@@ -93,13 +105,13 @@ class Worker:
         loguru.logger.info("Starting the MJPEG streaming server...")
         address = ("", 8000)  # FIXME(ethanjli): parameterize this
         self._streaming_server = mjpeg.StreamingServer(self._preview_stream, address)
-        # FIXME(ethanjli): make this not be a daemon thread, by recovering resourcse
-        # appropriately at shutdown!
         self._streaming_thread = threading.Thread(target=self._streaming_server.serve_forever)
         self._streaming_thread.start()
 
         loguru.logger.info("Starting the MQTT backend...")
-        # FIXME(ethanjli): expose the camera settings over "camera/settings" instead!
+        # TODO(ethanjli): expose the camera settings over "camera/settings" instead! This requires
+        # removing the "settings" action from the "imager/image" route which is a breaking change
+        # to the MQTT API, so we'll do this later.
         self._mqtt = mqtt.MQTT_Client(topic="imager/image", name="imager_camera_client")
         self._mqtt_receiver_close.clear()
         self._mqtt_receiver_thread = threading.Thread(target=self._receive_messages)
@@ -122,6 +134,8 @@ class Worker:
 
     def _receive_message(self, message: dict[str, typing.Any]) -> None:
         """Handle a single MQTT message."""
+        assert self._mqtt is not None
+
         if message["topic"] != "imager/image" or message["payload"].get("action", "") != "settings":
             return
         if "settings" not in message["payload"]:
@@ -227,7 +241,9 @@ class Worker:
             self._mqtt.client.publish("status/imager", '{"status":"Error: Image gain not valid"}')
             raise e
 
-    # TODO(ethanjli): allow an MQTT client to trigger this method with an MQTT command
+    # TODO(ethanjli): allow an MQTT client to trigger this method with an MQTT command. This
+    # requires modifying the MQTT API (by adding a new route), and we'll want to make the Node-RED
+    # dashboard query that route at startup, so we'll do this later.
     def _announce_camera_name(self) -> None:
         """Announce the camera's sensor name as a status update."""
         assert self._mqtt is not None
