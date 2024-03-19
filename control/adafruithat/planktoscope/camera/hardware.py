@@ -1,4 +1,4 @@
-"""camera provides type-annotated hardware abstractions for Raspberry Pi cameras."""
+"""hardware provides basic I/O abstractions for camera hardware."""
 
 import io
 import threading

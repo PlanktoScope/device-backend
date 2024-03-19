@@ -8,7 +8,7 @@ import loguru
 import picamera2  # type: ignore
 from picamera2 import encoders, outputs
 
-from planktoscope.imagernew import camera, mjpeg
+from planktoscope.camera import hardware, mjpeg
 
 
 def main() -> None:
@@ -36,7 +36,7 @@ def test_minimal() -> None:
     loguru.logger.info("Starting minimal streaming test...")
     cam = picamera2.Picamera2()
     cam.configure(cam.create_video_configuration(main={"size": (640, 480)}))
-    preview_stream = camera.PreviewStream()
+    preview_stream = hardware.PreviewStream()
     server = mjpeg.StreamingServer(preview_stream, ("", 8000))
 
     try:
@@ -54,8 +54,8 @@ def test_minimal() -> None:
 def test_wrapped() -> None:
     """Test the camera and MJPEG streamer with the basic thread-safe hardware abstraction."""
     loguru.logger.info("Starting wrapped streaming test...")
-    preview_stream = camera.PreviewStream()
-    cam = camera.PiCamera(preview_stream)
+    preview_stream = hardware.PreviewStream()
+    cam = hardware.PiCamera(preview_stream)
     server = mjpeg.StreamingServer(preview_stream, ("", 8000))
 
     try:
@@ -72,8 +72,8 @@ def test_wrapped() -> None:
 def test_saving() -> None:
     """Test the camera and MJPEG streamer while saving images to the current directory."""
     loguru.logger.info("Starting saving streaming test...")
-    preview_stream = camera.PreviewStream()
-    cam = camera.PiCamera(preview_stream)
+    preview_stream = hardware.PreviewStream()
+    cam = hardware.PiCamera(preview_stream)
     server = mjpeg.StreamingServer(preview_stream, ("", 8000))
 
     try:

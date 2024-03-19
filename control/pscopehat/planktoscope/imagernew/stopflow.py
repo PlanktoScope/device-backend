@@ -1,7 +1,7 @@
 """strategies provides ways of coordinating the hardware for image acquisition.
 
-This basically contains the domain logic of the imager module. No actual I/O (hardware control or
-MQTT messaging) should be added to this module.
+This basically contains the domain logic of the imager module. No actual I/O (hardware control,
+filesystem interaction, or MQTT messaging) should be added to this module.
 """
 
 import datetime as dt
