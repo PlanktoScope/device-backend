@@ -10,20 +10,20 @@ import loguru
 import typing_extensions
 
 
-class ByteBufferStream(typing_extensions.Protocol):
+class ByteBufferStreamWatcher(typing_extensions.Protocol):
     """Interface for a stream of byte buffers where the latest one can be watched."""
 
     def wait_next(self) -> None:
-        """Blocks until a new byte buffer is available on the stream of byte buffers."""
+        """Block until a new byte buffer is available on the stream of byte buffers."""
 
     def get(self) -> typing.Optional[bytes]:
-        """Returns the latest byte buffer from the stream of byte buffers."""
+        """Return the latest byte buffer from the stream of byte buffers."""
 
 
 class _StreamingHandler(server.BaseHTTPRequestHandler):
     def __init__(
         self,
-        latest_frame: ByteBufferStream,
+        latest_frame: ByteBufferStreamWatcher,
         request: typing.Union[socket.socket, tuple[bytes, socket.socket]],
         client_address: tuple[str, int],
         server_: socketserver.BaseServer,
@@ -94,7 +94,7 @@ class StreamingServer(server.ThreadingHTTPServer):
     daemon_threads = True
 
     def __init__(
-        self, mjpeg_stream: ByteBufferStream, server_address: tuple[str, int] = ("", 8000)
+        self, mjpeg_stream: ByteBufferStreamWatcher, server_address: tuple[str, int] = ("", 8000)
     ) -> None:
         """Initialize a server to serve an MJPEG stream at the specified address.
 
