@@ -276,19 +276,19 @@ class PiCamera:
 
     @property
     def stream_config(self) -> StreamConfig:
-        """Returns an immutable copy of the camera streams configuration."""
+        """An immutable copy of the camera streams configuration."""
         with self._settings_lock.gen_rlock():
             return self._stream_config
 
     @property
     def settings(self) -> SettingsValues:
-        """Returns an immutable copy of the camera settings values."""
+        """An immutable copy of the camera settings values."""
         with self._settings_lock.gen_rlock():
             return self._cached_settings
 
     @settings.setter
     def settings(self, updates: SettingsValues) -> None:
-        """Updates adjustable camera settings from all provided non-`None` values.
+        """Update adjustable camera settings from all provided non-`None` values.
 
         Fields provided with `None` values are ignored.
 

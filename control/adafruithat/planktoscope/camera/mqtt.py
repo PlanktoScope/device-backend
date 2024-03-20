@@ -69,7 +69,7 @@ class Worker(threading.Thread):
         self.camera: hardware.PiCamera = hardware.PiCamera(
             self._preview_stream, initial_settings=settings
         )
-        self._event_loop_close = threading.Event()
+        self._stop_event_loop = threading.Event()
 
     @loguru.logger.catch
     def run(self) -> None:
@@ -93,7 +93,7 @@ class Worker(threading.Thread):
         mqtt.client.publish("status/imager", json.dumps({"camera_name": self.camera.camera_name}))
 
         try:
-            while not self._event_loop_close.is_set():
+            while not self._stop_event_loop.is_set():
                 if not mqtt.new_message_received():
                     time.sleep(0.1)
                     continue
@@ -147,7 +147,7 @@ class Worker(threading.Thread):
 
     def shutdown(self):
         """Stop processing new MQTT messages and gracefully stop working."""
-        self._event_loop_close.set()
+        self._stop_event_loop.set()
 
 
 def _convert_settings(

@@ -349,7 +349,7 @@ class _PumpClient:
         # if we don't have a separate MQTT client):
         self._mqtt: typing.Optional[mqtt.MQTT_Client] = None
         self._mqtt_receiver_thread: typing.Optional[threading.Thread] = None
-        self._mqtt_receiver_close = threading.Event()  # close() was called
+        self._stop_receiving_mqtt = threading.Event()  # close() was called
         self._done = threading.Event()  # run_discrete() finished or stop() was called
         self._discrete_run = threading.Lock()  # mutex on starting the pump
 
@@ -370,7 +370,7 @@ class _PumpClient:
         """Update internal state based on pump status updates received over MQTT."""
         assert self._mqtt is not None
 
-        while not self._mqtt_receiver_close.is_set():
+        while not self._stop_receiving_mqtt.is_set():
             if not self._mqtt.new_message_received():
                 time.sleep(0.1)
                 continue
@@ -438,7 +438,7 @@ class _PumpClient:
         if self._mqtt is None:
             return
 
-        self._mqtt_receiver_close.set()
+        self._stop_receiving_mqtt.set()
         if self._mqtt_receiver_thread is not None:
             self._mqtt_receiver_thread.join()
         self._mqtt_receiver_thread = None
