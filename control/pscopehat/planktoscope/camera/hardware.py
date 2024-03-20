@@ -179,6 +179,27 @@ def _picamera2_to_settings_values(config: dict[str, typing.Any]) -> SettingsValu
     return SettingsValues(frame_duration_limits=frame_duration_limits)
 
 
+def config_to_settings_values(config: dict[str, typing.Any]) -> SettingsValues:
+    """Create a SettingsValues from a hardware.json configuration."""
+    result = SettingsValues()
+    # TODO(ethanjli): add exposure time (previously called "shutter speed") and image gain
+    # (previously called "iso" but with a different scaling factor) and auto_white_balance to the
+    # hardware.json config. Maybe also add jpeg_quality? For details, refer to
+    # https://github.com/PlanktoScope/PlanktoScope/issues/290
+    if "red_gain" in config or "blue_gain" in config:
+        try:
+            red_gain = float(config["red_gain"])
+            blue_gain = float(config["blue_gain"])
+        except KeyError:
+            loguru.logger.error("One of the white balance gains is unspecified!")
+        except ValueError:
+            loguru.logger.error("White balance gains have incorrect type!")
+        result = result.overlay(
+            SettingsValues(white_balance_gains=WhiteBalanceGains(red=red_gain, blue=blue_gain))
+        )
+    return result
+
+
 class PiCamera:
     """A thread-safe and type-safe wrapper around a picamera2-based camera.
 
@@ -238,7 +259,7 @@ class PiCamera:
             loguru.logger.debug(f"Final stream configuration: {self._stream_config}")
 
         initial_settings = self._cached_settings.overlay(_picamera2_to_settings_values(config))
-        loguru.logger.debug(f"Initializing camera settings: {initial_settings}")
+        loguru.logger.debug("Initializing camera settings...")
         self.settings = initial_settings
 
         loguru.logger.debug("Starting the camera...")

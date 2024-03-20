@@ -11,7 +11,7 @@ import loguru
 from planktoscope import mqtt as messaging
 from planktoscope.camera import hardware, mjpeg
 
-loguru.logger.info("planktoscope.imager is loaded")
+loguru.logger.info("planktoscope.camera is loaded")
 
 
 class Worker(threading.Thread):
@@ -33,36 +33,35 @@ class Worker(threading.Thread):
         """
         super().__init__(name="camera")
 
-        # Settings
-        # FIXME(ethanjli): decompose config-loading to a separate module (or to a function in the
-        # existing hardware module). That module should also be where the file schema is defined!
-        # For now, it should just output a SettingsValue.
-        # TODO(ethanjli): add any missing values to the hardware.json file, from defaults.
-        if os.path.exists("/home/pi/PlanktoScope/hardware.json"):
-            # load hardware.json
-            with open("/home/pi/PlanktoScope/hardware.json", "r", encoding="utf-8") as config_file:
-                hardware_config = json.load(config_file)
-                loguru.logger.debug(
-                    f"Loaded hardware configuration loaded: {hardware_config}",
-                )
-        else:
-            loguru.logger.info("The hardware configuration file doesn't exist, using defaults!")
-            hardware_config = {}
         settings = hardware.SettingsValues(
             auto_exposure=False,
             exposure_time=125,  # the default (minimum) exposure time in the PlanktoScope GUI
-            image_gain=hardware_config.get("analog_gain", 1.00),  # the default ISO of 100
+            image_gain=1.0,  # the default ISO of 100 in the PlanktoScope GUI
             brightness=0.0,  # the default "normal" brightness
             contrast=1.0,  # the default "normal" contrast
             auto_white_balance=False,  # the default setting in the PlanktoScope GUI
             white_balance_gains=hardware.WhiteBalanceGains(
                 # the default gains from the default v2.5 hardware config
-                red=float(hardware_config.get("red_gain", 2.4)),
-                blue=float(hardware_config.get("blue_gain", 1.35)),
+                red=2.4,
+                blue=1.35,
             ),
             sharpness=0,  # disable the default "normal" sharpening level
             jpeg_quality=80,  # trade off between image file size and quality
         )
+        # Settings
+        if os.path.exists("/home/pi/PlanktoScope/hardware.json"):
+            # load hardware.json
+            with open("/home/pi/PlanktoScope/hardware.json", "r", encoding="utf-8") as config_file:
+                hardware_config = json.load(config_file)
+                loguru.logger.debug(
+                    f"Loaded hardware configuration file: {hardware_config}",
+                )
+                settings = settings.overlay(hardware.config_to_settings_values(hardware_config))
+        else:
+            loguru.logger.info(
+                "The hardware configuration file doesn't exist, using default settings: "
+                + f"{settings}"
+            )
 
         # I/O
         self._preview_stream: hardware.PreviewStream = hardware.PreviewStream()
@@ -116,7 +115,7 @@ class Worker(threading.Thread):
             loguru.logger.info("Stopping the camera...")
             self.camera.close()
 
-            loguru.logger.info("Done shutting down!")
+            loguru.logger.success("Done shutting down!")
 
     def _receive_message(self, message: dict[str, typing.Any]) -> typing.Optional[str]:
         """Handle a single MQTT message.
@@ -143,7 +142,7 @@ class Worker(threading.Thread):
             return json.dumps({"status": f"Error: {str(e)}"})
 
         self.camera.settings = converted_settings
-        loguru.logger.info("Updated camera settings!")
+        loguru.logger.success("Updated camera settings!")
         return '{"status":"Camera settings updated"}'
 
     def shutdown(self):
