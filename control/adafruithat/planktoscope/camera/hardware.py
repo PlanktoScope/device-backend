@@ -4,12 +4,126 @@ import io
 import threading
 import typing
 
-import libcamera  # type: ignore
 import loguru
 import picamera2  # type: ignore
 import typing_extensions
 from picamera2 import encoders, outputs
 from readerwriterlock import rwlock
+
+
+class WhiteBalanceGains(typing.NamedTuple):
+    """Manual white balance gains."""
+
+    red: float
+    blue: float
+
+
+class SettingsValues(typing.NamedTuple):
+    """Values for camera settings.
+
+    Fields with `None` values should be ignored as if they were not set.
+    """
+
+    auto_exposure: typing.Optional[bool] = None
+    exposure_time: typing.Optional[int] = None  # μs; must be within frame_duration_limits
+    frame_duration_limits: typing.Optional[tuple[int, int]] = None  # μs
+    image_gain: typing.Optional[float] = None  # must be within [0.0, 16.0]
+    brightness: typing.Optional[float] = None  # must be within [-1.0, 1.0]
+    contrast: typing.Optional[float] = None  # must be within [0.0, 32.0]
+    auto_white_balance: typing.Optional[bool] = None
+    white_balance_gains: typing.Optional[WhiteBalanceGains] = None  # must be within [0.0, 32.0]
+    sharpness: typing.Optional[float] = None  # must be within [0.0, 16.0]
+    jpeg_quality: typing.Optional[int] = None  # must be within [0, 95]
+    # Note(ethanjli): we can also expose other settings/properties in a similar way, but we don't
+    # need them yet and we're trying to minimize the amount of code we have to maintain, so for now
+    # I haven't implemented them.
+
+    def validate(self) -> list[str]:
+        """Look for values which are invalid because they're out-of-range.
+
+        Returns:
+            A list of strings, each representing a validation error.
+        """
+        value: typing.Any = None
+        errors = self._validate_exposure_time()
+        if (value := self.image_gain) is not None and not 0.0 <= value <= 16.0:
+            errors.append(f"Image gain out of range [0.0, 16.0]: {value}")
+        if (value := self.brightness) is not None and not -1.0 <= value <= 1.0:
+            errors.append(f"Brightness out of range [-1.0, 1.0]: {value}")
+        if (value := self.contrast) is not None and not 0.0 <= value <= 32.0:
+            errors.append(f"Contrast out of range [0.0, 32.0]: {value}")
+        if (value := self.white_balance_gains) is not None and not 0.0 <= value.red <= 32.0:
+            errors.append(f"Red white-balance gain out of range [0.0, 32.0]: {value.red}")
+        if (value := self.white_balance_gains) is not None and not 0.0 <= value.blue <= 32.0:
+            errors.append(f"Blue white-balance gain out of range [0.0, 32.0]: {value.blue}")
+        if (value := self.sharpness) is not None and not 0.0 <= value <= 16.0:
+            errors.append(f"Sharpness out of range [0.0, 16.0]: {value}")
+        if (value := self.jpeg_quality) is not None and not 0 <= value <= 95:
+            errors.append(f"JPEG quality out of range [0, 95]: {value}")
+
+        return errors
+
+    def _validate_exposure_time(self) -> list[str]:
+        """Check whether exposure_time is consistent with frame_duration_limits."""
+        if (value := self.exposure_time) is None:
+            return []
+
+        if (limits := self.frame_duration_limits) is None:
+            if value < 0:
+                return [f"Exposure time out of range [0, +Inf]: {value}"]
+            return []
+
+        # This is a pylint false-positive, since mypy knows `limits` is an unpackable tuple:
+        min_limit, max_limit = limits  # pylint: disable=unpacking-non-sequence
+        if not min_limit <= value <= max_limit:
+            return [f"Exposure time out of range [{min_limit}, {max_limit}]: {value}"]
+
+        return []
+
+    def has_values(self) -> bool:
+        """Check whether any values are non-`None`."""
+        # pylint complains that this namedtuple has no `_asdict()` method even though mypy is fine;
+        # this is a false positive:
+        # pylint: disable-next=no-member
+        return any(value is not None for value in self._asdict().values())
+
+    def overlay(self, updates: "SettingsValues") -> "SettingsValues":
+        """Create a new instance where provided non-`None` values overwrite existing values."""
+        # pylint complains that this namedtuple has no `_asdict()` method even though mypy is fine;
+        # this is a false positive:
+        # pylint: disable-next=no-member
+        return self._replace(
+            **{key: value for key, value in updates._asdict().items() if value is not None}
+        )
+
+    def as_picamera2_controls(self) -> dict[str, typing.Any]:
+        """Create an equivalent dict of values for picamera2's camera controls."""
+        result = {
+            "AeEnable": self.auto_exposure,
+            "ExposureTime": self.exposure_time,
+            "AnalogueGain": self.image_gain,
+            "Brightness": self.brightness,
+            "Contrast": self.contrast,
+            "AwbEnable": self.auto_white_balance,
+            "ColourGains": self.white_balance_gains,
+            "Sharpness": self.sharpness,
+        }
+        return {key: value for key, value in result.items() if value is not None}
+
+    def as_picamera2_options(self) -> dict[str, typing.Any]:
+        """Create an equivalent dict of values suitable for picamera2's camera options."""
+        result = {"quality": self.jpeg_quality}
+        return {key: value for key, value in result.items() if value is not None}
+
+
+def _picamera2_config_to_settings_values(config: dict[str, typing.Any]) -> SettingsValues:
+    """Create a SettingsValues from a picamera2 pre-start configuration.
+
+    Raises:
+        ValueError: the configuration does not contain the required fields or values.
+    """
+    frame_duration_limits = config["controls"]["FrameDurationLimits"]
+    return SettingsValues(frame_duration_limits=frame_duration_limits)
 
 
 class PiCamera:
@@ -35,23 +149,32 @@ class PiCamera:
             preview_bitrate: the bitrate (in bits/sec) of the preview stream; defaults to a bitrate
               for a high-quality stream.
         """
-        # Settings
+        # Initialization settings (must be set before camera starts):
         self._preview_size: tuple[int, int] = preview_size
         self._preview_bitrate: typing.Optional[int] = preview_bitrate
 
-        # I/O
+        # Cached settings (can be adjusted while camera runs):
+        self._cached_settings_lock = rwlock.RWLockWrite()
+        self._cached_settings = SettingsValues()
+
+        # Read-only properties:
+        self._config: dict[str, typing.Any] = {}
+
+        # I/O:
         self._preview_output = preview_output
         self._camera: typing.Optional[picamera2.Picamera2] = None
-        self.controls: typing.Optional[Controls] = None
 
     def open(self) -> None:
-        """Start the camera in the background, including output to the preview stream."""
+        """Start the camera in the background, including output to the preview stream.
+
+        Blocks until the camera has started.
+        """
         loguru.logger.debug("Configuring the camera...")
         self._camera = picamera2.Picamera2()
 
         # We use the `create_still_configuration` to get the best defaults for still images from the
         # "main" stream:
-        config = self._camera.create_still_configuration(
+        self._config = self._camera.create_still_configuration(
             main={"size": self._camera.sensor_resolution},
             lores={"size": self._preview_size},
             # We need at least three buffers to allow the preview to continue receiving frames
@@ -59,14 +182,18 @@ class PiCamera:
             # the main stream:
             buffer_count=3,
         )
-        loguru.logger.debug(f"Camera configuration: {config}")
-        self._camera.configure(config)
+        loguru.logger.debug(f"Camera configuration: {self._config}")
+        self._camera.configure(self._config)
+        self._cached_settings = _picamera2_config_to_settings_values(self._config)
 
-        self.controls = Controls(self._camera, config["controls"]["FrameDurationLimits"])
+        # Note(ethanjli): we could apply initial camera controls settings here before we start
+        # recording, but we don't really have a need to do that, and it's simpler to require
+        # the client code to wait until after the camera has started recording before allowing
+        # settings changes.
 
         loguru.logger.debug("Starting the camera...")
         self._camera.start_recording(
-            # For compatibility with the RPi4 (which must use YUV420 for lores stream output), we
+            # For compatibility with the RPi 4 (which must use YUV420 for lores stream output), we
             # cannot use JpegEncoder (which only accepts RGB, not YUV); for details, refer to Table
             # 1 on page 59 of the picamera2 manual. So we must use MJPEGEncoder instead:
             encoders.MJPEGEncoder(bitrate=self._preview_bitrate),
@@ -74,6 +201,78 @@ class PiCamera:
             quality=encoders.Quality.HIGH,
             name="lores",
         )
+
+    @property
+    def settings(self) -> SettingsValues:
+        """Returns an immutable copy of the camera settings values."""
+        with self._cached_settings_lock.gen_rlock():
+            return self._cached_settings
+
+    @settings.setter
+    def settings(self, updates: SettingsValues) -> None:
+        """Updates adjustable camera settings from all provided non-`None` values.
+
+        Fields provided with `None` values are ignored.
+
+        Raises:
+            RuntimeError: the method was called before the camera was started, or after it was
+              closed.
+            ValueError: some of the provided values are out of the allowed ranges.
+        """
+        if not updates.has_values():
+            return
+        if self._camera is None:
+            raise RuntimeError("The camera has not been started yet!")
+
+        loguru.logger.debug(f"Applying camera settings updates: {updates}")
+        with self._cached_settings_lock.gen_wlock():
+            new_values = self._cached_settings.overlay(updates)
+            loguru.logger.debug(f"New camera settings will be: {new_values}")
+            if errors := new_values.validate():
+                raise ValueError(f"Invalid settings: {'; '.join(errors)}")
+            #loguru.logger.debug(f"Controls for picamera2: {updates.as_picamera2_controls()}")
+            loguru.logger.debug(f"Controls for picamera2: {new_values.as_picamera2_controls()}")
+            # FIXME(ethanjli): for some reason, exposure time doesn't actually change; and the other
+            # settings cause a crash. Maybe one of the values is in an incorrect format? Let's add
+            # a test in test_preview.py for easier debugging/testing!
+            #self._camera.set_controls(updates.as_picamera2_controls())
+            self._camera.set_controls(new_values.as_picamera2_controls())
+            for key, value in updates.as_picamera2_options().items():
+                self._camera.options[key] = value
+            self._cached_settings = new_values
+
+    @property
+    def sensor_name(self) -> str:
+        """Name of the camera sensor.
+
+        Returns:
+            Usually one of: `IMX219` (RPi Camera Module 2, used in PlanktoScope hardware v2.1)
+            or `IMX477` (RPi High Quality Camera, used in PlanktoScope hardware v2.3+).
+
+        Raises:
+            RuntimeError: the method was called before the camera was started, or after it was
+              closed.
+        """
+        if self._camera is None:
+            raise RuntimeError("The camera has not been started yet!")
+
+        model = self._camera.camera_properties["Model"]
+        assert isinstance(model, str)
+        return model.upper()
+
+    @property
+    def capture_size(self) -> tuple[int, int]:
+        """The width and height of images captured from the main stream."""
+        # Note(ethanjli): we can also expose the preview size in a similar way, just using "lores"
+        # instead of "main". But we don't need that yet and we're trying to minimize the amount of
+        # code we have to maintain, so for now I haven't implemented it.
+        assert "size" in self._config["main"]
+        size = self._config["main"]["size"]
+        assert isinstance(size, tuple)
+        assert len(size) == 2
+        assert isinstance(size[0], int)
+        assert isinstance(size[1], int)
+        return size
 
     def capture_file(self, path: str) -> None:
         """Capture an image from the main stream (in full resolution) and save it as a file.
@@ -88,10 +287,7 @@ class PiCamera:
               closed.
         """
         if self._camera is None:
-            raise RuntimeError(
-                "The camera must be configured with the `configure` method before it can be used to"
-                + "capture images"
-            )
+            raise RuntimeError("The camera has not been started yet!")
 
         loguru.logger.debug(f"Capturing and saving image to {path}...")
         request = self._camera.capture_request()
@@ -112,217 +308,17 @@ class PiCamera:
             return
 
         loguru.logger.debug("Stopping the camera...")
+        # Note(ethanjli): when picamera2 itself crashes while recording in the background, calling
+        # `stop_recording()` causes a deadlock! I don't know how to work around that deadlock; this
+        # might be an upstream bug which we could fix by upgrading to RPi OS 12, or maybe we need to
+        # file an issue with upstream (i.e. in the picamera2 GitHub repo...for now, we'll just try
+        # to avoid causing crashes in picamera2 and worry about this problem another day 🤡
         self._camera.stop_recording()
 
         loguru.logger.debug("Closing the camera...")
         self._camera.close()
         self._camera = None
-        self.controls = None
-
-
-ExposureModes = typing.Literal["off", "normal", "short", "long"]
-WhiteBalanceModes = typing.Literal[
-    "off", "auto", "tungsten", "fluorescent", "indoor", "daylight", "cloudy"
-]
-
-
-# FIXME(ethanjli): simplify this class!
-class Controls:
-    """A wrapper to simplify setting and querying of camera controls & properties."""
-
-    # pylint: disable=too-many-instance-attributes
-    # The alternative to having a bunch of instance attributes would be to just do things via dicts,
-    # which would lead to a smaller class but would make it impossible to get help from the type
-    # checker.
-
-    def __init__(self, camera: picamera2.Picamera2, exposure_range: tuple[int, int]) -> None:
-        """Initialize the camera controls.
-
-        Args:
-            exposure_range: the minimum and maximum allowed exposure duration values.
-        """
-        self._camera = camera
-        self._exposure_range: typing.Final[tuple[int, int]] = exposure_range
-
-        # Cached values
-        self._cache_lock = rwlock.RWLockWrite()
-        self._exposure_time: typing.Optional[int] = None
-        self._exposure_mode: ExposureModes = "off"
-        self._white_balance_mode: WhiteBalanceModes = "off"
-        self._image_gain: typing.Optional[float] = None
-
-    # Note: self._camera.controls is thread-safe because it has its own internal threading.Lock()
-    # instance. However, if we store any state in Controls, then we should add a reader-writer lock
-    # to prevent data races.
-
-    @property
-    def sensor_name(self) -> str:
-        """Sensor name of the connected camera
-
-        Returns:
-            The name of the camera's sensor. One of: `OV5647` (original RPi Camera Module),
-            `IMX219` (RPi Camera Module 2), or `IMX477` (RPi High Quality Camera)
-        """
-        model = self._camera.camera_properties["Model"]
-        assert isinstance(model, str)
-        return model.upper()
-
-    @property
-    def exposure_time(self) -> typing.Optional[int]:
-        """Return the last exposure time which was set."""
-        with self._cache_lock.gen_rlock():
-            return self._exposure_time
-
-    @exposure_time.setter
-    def exposure_time(self, exposure_time: int) -> None:
-        """Change the camera sensor exposure time.
-
-        Args:
-            exposure_time (int): exposure time in µs
-
-        Raises:
-            ValueError: if the provided exposure time is outside the allowed range
-        """
-        if exposure_time < self._exposure_range[0] or exposure_time > self._exposure_range[1]:
-            raise ValueError(
-                f"Invalid exposure time ({exposure_time}) outside bounds: "
-                + f"[{self._exposure_range}]"
-            )
-
-        loguru.logger.debug(f"Setting the exposure time to {exposure_time}...")
-        with self._cache_lock.gen_wlock():
-            self._exposure_time = exposure_time
-            self._camera.controls.ExposureTime = self._exposure_time
-
-    @property
-    def exposure_mode(self) -> ExposureModes:
-        """Return the last exposure mode which was set."""
-        return self._exposure_mode
-
-    @exposure_mode.setter
-    def exposure_mode(self, mode: ExposureModes) -> None:
-        """Change the camera exposure mode.
-
-        Args:
-            mode: exposure mode to use.
-        """
-        loguru.logger.debug(f"Setting the exposure mode to {mode}")
-
-        self._exposure_mode = mode
-        if mode == "off":
-            self._camera.set_controls({"AeEnable": False})
-            return
-
-        modes = {
-            "normal": libcamera.controls.AeExposureModeEnum.Normal,
-            "short": libcamera.controls.AeExposureModeEnum.Short,
-            "long": libcamera.controls.AeExposureModeEnum.Long,
-        }
-        self._camera.set_controls({"AeEnable": 1, "AeExposureMode": modes[mode]})
-
-    @property
-    def white_balance_mode(self) -> WhiteBalanceModes:
-        """Return the last white balance mode which was set."""
-        return self._white_balance_mode
-
-    @white_balance_mode.setter
-    def white_balance_mode(self, mode: WhiteBalanceModes) -> None:
-        """Change the white balance mode.
-
-        Args:
-            mode: white balance mode to use.
-        """
-        loguru.logger.debug(f"Setting the white balance mode to {mode}")
-
-        self._white_balance_mode = mode
-        if mode == "off":
-            self._camera.set_controls({"AwbEnable": False})
-            return
-
-        modes = {
-            "auto": libcamera.controls.AwbModeEnum.Auto,
-            "tungsten": libcamera.controls.AwbModeEnum.Tungsten,
-            "fluorescent": libcamera.controls.AwbModeEnum.Fluorescent,
-            "indoor": libcamera.controls.AwbModeEnum.Indoor,
-            "daylight": libcamera.controls.AwbModeEnum.Daylight,
-            "cloudy": libcamera.controls.AwbModeEnum.Cloudy,
-        }
-        self._camera.set_controls({"AwbEnable": True, "AwbMode": modes[mode]})
-
-    @property
-    def white_balance_gains(self) -> tuple[float, float]:
-        """Return the last white balance gains which were set."""
-        red_gain, blue_gain = self._camera.controls.ColourGains
-        assert isinstance(red_gain, float)
-        assert isinstance(blue_gain, float)
-        return red_gain, blue_gain
-
-    @white_balance_gains.setter
-    def white_balance_gains(self, gains: tuple[float, float]) -> None:
-        """Change the white balance gains.
-
-        Args:
-            gains: red and blue gains, each between 0.0 and 32.0.
-        """
-        loguru.logger.debug(f"Setting the white balance gain to {gains}")
-        red_gain, blue_gain = gains
-        min_gain, max_gain = 0.0, 32.0
-        if not (min_gain <= red_gain <= max_gain and min_gain <= blue_gain <= max_gain):
-            raise ValueError(
-                f"Invalid white balance gains (red {red_gain}, blue {blue_gain}) "
-                + f"outside bounds: [{min_gain}, {max_gain}]"
-            )
-
-        self._camera.controls.ColourGains = gains
-
-    @property
-    def image_gain(self) -> typing.Optional[float]:
-        """Return the last image gain (analog gain + digital gain) which was set."""
-        return self._image_gain
-
-    @image_gain.setter
-    def image_gain(self, gain: float) -> None:
-        """Change the image gain.
-
-            The camera image gain value should be a floating point number between 1.0 and 16.0
-            for the analog gain and the digital gain (used automatically when the sensor’s
-            analog gain control cannot go high enough).
-
-        Args:
-            gain (float): Image gain to use
-        """
-        loguru.logger.debug(f"Setting the analogue gain to {gain}")
-        min_gain, max_gain = 1.0, 16.0
-        if not min_gain <= gain <= max_gain:
-            raise ValueError(
-                f"Invalid image gain ({gain}) outside bounds: [{min_gain}, {max_gain}]"
-            )
-
-        self._image_gain = gain
-        self._camera.controls.AnalogueGain = self._image_gain  # DigitalGain
-
-    # FIXME(ethanjli): Delete this if we actually don't need it:
-    # @property
-    # def image_quality(self):
-    #     return self.__image_quality
-
-    # FIXME(ethanjli): Delete this if we actually don't need it:
-    # @image_quality.setter
-    # def image_quality(self, image_quality):
-    #     """Change the output image quality
-
-    #     Args:
-    #         image_quality (int): image quality [0,100]
-    #     """
-    #     loguru.logger.debug(f"Setting image quality to {image_quality}")
-    #     if 0 <= image_quality <= 100:
-    #         self.__image_quality = image_quality
-    #         self._camera.options["quality"] = self.__image_quality
-    #     else:
-    #         loguru.logger.error(
-    #             f"The output image quality specified ({image_quality}) is not valid"
-    #         )
-    #         raise ValueError
+        self._cached_settings = SettingsValues()
 
 
 class PreviewStream(io.BufferedIOBase):

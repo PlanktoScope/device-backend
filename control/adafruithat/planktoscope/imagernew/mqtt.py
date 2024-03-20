@@ -151,17 +151,23 @@ class Worker(multiprocessing.Process):
             self._mqtt.client.publish("status/imager", '{"status":"Error"}')
             return
 
+        capture_size = self._camera.camera.capture_size
+        camera_settings = self._camera.camera.settings
+        machine_name = identity.load_machine_name()
+        metadata = {
+            **self._metadata,
+            "acq_local_datetime": datetime.datetime.now().isoformat().split(".")[0],
+            "acq_camera_resolution": f"{capture_size[0]}x{capture_size[1]}",
+            "acq_camera_iso": camera_settings.exposure_time,
+            "acq_camera_shutter_speed": camera_settings.exposure_time,
+            "acq_uuid": machine_name,
+            "sample_uuid": machine_name,
+        }
+        loguru.logger.debug(f"Saving metadata: {metadata}")
         try:
             output_path = _initialize_acquisition_directory(
                 "/home/pi/data/img",
-                {
-                    **self._metadata,
-                    "acq_local_datetime": datetime.datetime.now().isoformat().split(".")[0],
-                    # FIXME(ethanjli): query the exposure time using a publicly-exposed property
-                    "acq_camera_shutter_speed": self._camera._exposure_time,
-                    "acq_uuid": identity.load_machine_name(),
-                    "sample_uuid": identity.load_machine_name(),
-                },
+                metadata,
             )
         except ValueError as e:
             self._mqtt.client.publish(
