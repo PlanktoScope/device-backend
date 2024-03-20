@@ -11,6 +11,55 @@ from picamera2 import encoders, outputs
 from readerwriterlock import rwlock
 
 
+class StreamConfig(typing.NamedTuple):
+    """Values for stream configuration performed exactly once, before the camera starts.
+
+    Fields with `None` values should be ignored as if they were not set.
+    """
+
+    # The width & height (in pixels) of captured (non-preview) images; defaults to the max allowed
+    # size for the camera sensor:
+    capture_size: typing.Optional[tuple[int, int]] = None
+    # The width & height (in pixels) of camera preview; defaults to the max allowed size for the
+    # camera sensor:
+    preview_size: typing.Optional[tuple[int, int]] = None
+    # The bitrate (in bits/sec) of the preview stream; defaults to a bitrate automatically
+    # calculated for a high-quality stream:
+    preview_bitrate: typing.Optional[int] = None
+    # The number of frame buffers to allocate in memory:
+    # Note(ethanjli): from testing, it seems that we need at least three buffers to allow the
+    # preview to continue receiving frames smoothly from the "lores" stream while a buffer is
+    # reserved for saving an image from the "main" stream.
+    buffer_count: int = 3
+    # Whether to allow the last queued frame to be returned for a capture, even if that frame was
+    # saved before the capture request:
+    queue: bool = False
+
+    def overlay(self, updates: "StreamConfig") -> "StreamConfig":
+        """Create a new instance where provided non-`None` values overwrite existing values."""
+        # pylint complains that this namedtuple has no `_asdict()` method even though mypy is fine;
+        # this is a false positive:
+        # pylint: disable-next=no-member
+        return self._replace(
+            **{key: value for key, value in updates._asdict().items() if value is not None}
+        )
+
+
+def _picamera2_to_stream_config(config: dict[str, typing.Any]) -> StreamConfig:
+    """Create a StreamConfig from a picamera2 pre-start configuration.
+
+    Raises:
+        KeyError: the configuration does not contain the required fields.
+        ValueError: the configuration does not contain the required fields or values.
+    """
+    return StreamConfig(
+        capture_size=config["main"]["size"],
+        preview_size=config["lores"]["size"],
+        buffer_count=config["buffer_count"],
+        queue=config["queue"],
+    )
+
+
 class WhiteBalanceGains(typing.NamedTuple):
     """Manual white balance gains."""
 
@@ -19,11 +68,12 @@ class WhiteBalanceGains(typing.NamedTuple):
 
 
 class SettingsValues(typing.NamedTuple):
-    """Values for camera settings.
+    """Values for camera settings adjustable anytime after the camera is configured.
 
     Fields with `None` values should be ignored as if they were not set.
     """
 
+    # picamera2 controls
     auto_exposure: typing.Optional[bool] = None
     exposure_time: typing.Optional[int] = None  # μs; must be within frame_duration_limits
     frame_duration_limits: typing.Optional[tuple[int, int]] = None  # μs
@@ -33,7 +83,10 @@ class SettingsValues(typing.NamedTuple):
     auto_white_balance: typing.Optional[bool] = None
     white_balance_gains: typing.Optional[WhiteBalanceGains] = None  # must be within [0.0, 32.0]
     sharpness: typing.Optional[float] = None  # must be within [0.0, 16.0]
+
+    # picamera2 options
     jpeg_quality: typing.Optional[int] = None  # must be within [0, 95]
+
     # Note(ethanjli): we can also expose other settings/properties in a similar way, but we don't
     # need them yet and we're trying to minimize the amount of code we have to maintain, so for now
     # I haven't implemented them.
@@ -116,49 +169,41 @@ class SettingsValues(typing.NamedTuple):
         return {key: value for key, value in result.items() if value is not None}
 
 
-def _picamera2_config_to_settings_values(config: dict[str, typing.Any]) -> SettingsValues:
+def _picamera2_to_settings_values(config: dict[str, typing.Any]) -> SettingsValues:
     """Create a SettingsValues from a picamera2 pre-start configuration.
 
     Raises:
-        ValueError: the configuration does not contain the required fields or values.
+        KeyError: the configuration does not contain the required fields or values.
     """
     frame_duration_limits = config["controls"]["FrameDurationLimits"]
     return SettingsValues(frame_duration_limits=frame_duration_limits)
 
 
 class PiCamera:
-    """A thread-safe wrapper around a picamera2-based camera.
+    """A thread-safe and type-safe wrapper around a picamera2-based camera.
 
-    Attributes:
-        controls: a [Controls] instance associated with the camera. Uninitialized until the
-          `start()` method is called.
+    The camera has two streams: a capture stream (for manually triggering image capture) and a
+    preview stream (which is continuously updated in the background).
     """
 
     def __init__(
         self,
         preview_output: io.BufferedIOBase,
-        preview_size: tuple[int, int] = (640, 480),
-        preview_bitrate: typing.Optional[int] = None,
+        stream_config: StreamConfig = StreamConfig(preview_size=(640, 480), buffer_count=3),
+        initial_settings: SettingsValues = SettingsValues(),
     ) -> None:
         """Set up state needed to initialize the camera, but don't actually start the camera.
 
         Args:
             preview_output: an image stream which this `PiCamera` instance will write camera preview
               images to.
-            preview_size: the width and height (in pixels) of the camera preview.
-            preview_bitrate: the bitrate (in bits/sec) of the preview stream; defaults to a bitrate
-              for a high-quality stream.
+            stream_config: configuration of camera output streams.
+            initial_settings: any camera settings to initialize the camera with.
         """
-        # Initialization settings (must be set before camera starts):
-        self._preview_size: tuple[int, int] = preview_size
-        self._preview_bitrate: typing.Optional[int] = preview_bitrate
-
-        # Cached settings (can be adjusted while camera runs):
-        self._cached_settings_lock = rwlock.RWLockWrite()
-        self._cached_settings = SettingsValues()
-
-        # Read-only properties:
-        self._config: dict[str, typing.Any] = {}
+        # Settings & configuration
+        self._settings_lock = rwlock.RWLockWrite()
+        self._stream_config = stream_config
+        self._cached_settings = initial_settings
 
         # I/O:
         self._preview_output = preview_output
@@ -172,40 +217,52 @@ class PiCamera:
         loguru.logger.debug("Configuring the camera...")
         self._camera = picamera2.Picamera2()
 
-        # We use the `create_still_configuration` to get the best defaults for still images from the
-        # "main" stream:
-        self._config = self._camera.create_still_configuration(
-            main={"size": self._camera.sensor_resolution},
-            lores={"size": self._preview_size},
-            # We need at least three buffers to allow the preview to continue receiving frames
-            # smoothly from the lores stream while a buffer is reserved for saving an image from
-            # the main stream:
-            buffer_count=3,
+        main_config: dict[str, typing.Any] = {}
+        if (main_size := self._stream_config.capture_size) is not None:
+            main_config["size"] = main_size
+        lores_config: dict[str, typing.Any] = {}
+        if (lores_size := self._stream_config.preview_size) is not None:
+            lores_config["size"] = lores_size
+        # Note(ethanjli): we use the `create_still_configuration` to get the best defaults for still
+        # images from the "main" stream:
+        config = self._camera.create_still_configuration(
+            main_config,
+            lores_config,
+            buffer_count=self._stream_config.buffer_count,
+            queue=self._stream_config.queue,
         )
-        loguru.logger.debug(f"Camera configuration: {self._config}")
-        self._camera.configure(self._config)
-        self._cached_settings = _picamera2_config_to_settings_values(self._config)
+        loguru.logger.debug(f"Camera configuration: {config}")
+        self._camera.configure(config)
+        with self._settings_lock.gen_wlock():
+            self._stream_config = self._stream_config.overlay(_picamera2_to_stream_config(config))
+            loguru.logger.debug(f"Final stream configuration: {self._stream_config}")
 
-        # Note(ethanjli): we could apply initial camera controls settings here before we start
-        # recording, but we don't really have a need to do that, and it's simpler to require
-        # the client code to wait until after the camera has started recording before allowing
-        # settings changes.
+        initial_settings = self._cached_settings.overlay(_picamera2_to_settings_values(config))
+        loguru.logger.debug(f"Initializing camera settings: {initial_settings}")
+        self.settings = initial_settings
 
         loguru.logger.debug("Starting the camera...")
         self._camera.start_recording(
-            # For compatibility with the RPi 4 (which must use YUV420 for lores stream output), we
-            # cannot use JpegEncoder (which only accepts RGB, not YUV); for details, refer to Table
-            # 1 on page 59 of the picamera2 manual. So we must use MJPEGEncoder instead:
-            encoders.MJPEGEncoder(bitrate=self._preview_bitrate),
+            # Note(ethanjli): for compatibility with the RPi 4 (which must use YUV420 for "lores"
+            # stream output), we cannot use `JpegEncoder` (which only accepts RGB, not YUV); for
+            # details, refer to Table 1 on page 59 of the picamera2 manual. So we must use
+            # `MJPEGEncoder` instead:
+            encoders.MJPEGEncoder(bitrate=self._stream_config.preview_bitrate),
             outputs.FileOutput(self._preview_output),
             quality=encoders.Quality.HIGH,
             name="lores",
         )
 
     @property
+    def stream_config(self) -> StreamConfig:
+        """Returns an immutable copy of the camera streams configuration."""
+        with self._settings_lock.gen_rlock():
+            return self._stream_config
+
+    @property
     def settings(self) -> SettingsValues:
         """Returns an immutable copy of the camera settings values."""
-        with self._cached_settings_lock.gen_rlock():
+        with self._settings_lock.gen_rlock():
             return self._cached_settings
 
     @settings.setter
@@ -225,17 +282,12 @@ class PiCamera:
             raise RuntimeError("The camera has not been started yet!")
 
         loguru.logger.debug(f"Applying camera settings updates: {updates}")
-        with self._cached_settings_lock.gen_wlock():
+        with self._settings_lock.gen_wlock():
             new_values = self._cached_settings.overlay(updates)
             loguru.logger.debug(f"New camera settings will be: {new_values}")
             if errors := new_values.validate():
                 raise ValueError(f"Invalid settings: {'; '.join(errors)}")
-            # loguru.logger.debug(f"Controls for picamera2: {updates.as_picamera2_controls()}")
-            loguru.logger.debug(f"Controls for picamera2: {new_values.as_picamera2_controls()}")
-            # FIXME(ethanjli): for some reason, exposure time doesn't actually change; and the other
-            # settings cause a crash. Maybe one of the values is in an incorrect format? Let's add
-            # a test in test_preview.py for easier debugging/testing!
-            # self._camera.set_controls(updates.as_picamera2_controls())
+            loguru.logger.debug(f"Setting picamera2 controls: {new_values.as_picamera2_controls()}")
             self._camera.set_controls(new_values.as_picamera2_controls())
             for key, value in updates.as_picamera2_options().items():
                 self._camera.options[key] = value
@@ -280,20 +332,6 @@ class PiCamera:
             "IMX477": "Camera HQ",
         }
         return camera_names.get(self.sensor_name, "Not recognized")
-
-    @property
-    def capture_size(self) -> tuple[int, int]:
-        """The width and height of images captured from the main stream."""
-        # Note(ethanjli): we can also expose the preview size in a similar way, just using "lores"
-        # instead of "main". But we don't need that yet and we're trying to minimize the amount of
-        # code we have to maintain, so for now I haven't implemented it.
-        assert "size" in self._config["main"]
-        size = self._config["main"]["size"]
-        assert isinstance(size, tuple)
-        assert len(size) == 2
-        assert isinstance(size[0], int)
-        assert isinstance(size[1], int)
-        return size
 
     def capture_file(self, path: str) -> None:
         """Capture an image from the main stream (in full resolution) and save it as a file.

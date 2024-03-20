@@ -34,8 +34,10 @@ class Worker(threading.Thread):
         super().__init__(name="camera")
 
         # Settings
-        # FIXME(ethanjli): decompose config-loading to a separate module. That module should also be
-        # where the file schema is defined!
+        # FIXME(ethanjli): decompose config-loading to a separate module (or to a function in the
+        # existing hardware module). That module should also be where the file schema is defined!
+        # For now, it should just output a SettingsValue.
+        # TODO(ethanjli): add any missing values to the hardware.json file, from defaults.
         if os.path.exists("/home/pi/PlanktoScope/hardware.json"):
             # load hardware.json
             with open("/home/pi/PlanktoScope/hardware.json", "r", encoding="utf-8") as config_file:
@@ -46,8 +48,7 @@ class Worker(threading.Thread):
         else:
             loguru.logger.info("The hardware configuration file doesn't exist, using defaults!")
             hardware_config = {}
-
-        self._settings = hardware.SettingsValues(
+        settings = hardware.SettingsValues(
             auto_exposure=False,
             exposure_time=125,  # the default (minimum) exposure time in the PlanktoScope GUI
             image_gain=hardware_config.get("analog_gain", 1.00),  # the default ISO of 100
@@ -66,7 +67,9 @@ class Worker(threading.Thread):
         # I/O
         self._preview_stream: hardware.PreviewStream = hardware.PreviewStream()
         self._mjpeg_server_address = mjpeg_server_address
-        self.camera: hardware.PiCamera = hardware.PiCamera(self._preview_stream)
+        self.camera: hardware.PiCamera = hardware.PiCamera(
+            self._preview_stream, initial_settings=settings
+        )
         self._event_loop_close = threading.Event()
 
     @loguru.logger.catch
@@ -74,7 +77,6 @@ class Worker(threading.Thread):
         """Start the camera and run the main event loop."""
         loguru.logger.info("Initializing the camera with default settings...")
         self.camera.open()
-        self.camera.settings = self._settings
 
         loguru.logger.info("Starting the MJPEG streaming server...")
         streaming_server = mjpeg.StreamingServer(self._preview_stream, self._mjpeg_server_address)

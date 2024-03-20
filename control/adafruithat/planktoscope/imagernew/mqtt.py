@@ -152,7 +152,8 @@ class Worker(multiprocessing.Process):
             self._mqtt.client.publish("status/imager", '{"status":"Error"}')
             return
 
-        capture_size = self._camera.camera.capture_size
+        capture_size = self._camera.camera.stream_config.capture_size
+        assert capture_size is not None
         camera_settings = self._camera.camera.settings
         machine_name = identity.load_machine_name()
         metadata = {
