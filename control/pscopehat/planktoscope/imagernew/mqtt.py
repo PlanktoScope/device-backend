@@ -65,7 +65,6 @@ class Worker(multiprocessing.Process):
 
         loguru.logger.info("Starting the camera...")
         self._camera = camera.Worker()
-        self._camera.open()
         loguru.logger.success("Camera is ready!")
         self._mqtt.client.publish("status/imager", '{"status":"Ready"}')
 
@@ -84,9 +83,10 @@ class Worker(multiprocessing.Process):
         finally:
             loguru.logger.info("Shutting down the imager process...")
             self._mqtt.client.publish("status/imager", '{"status":"Dead"}')
-            self._camera.close()
+            self._camera.shutdown()
             self._pump.close()
             self._mqtt.shutdown()
+            self._camera.join()
             loguru.logger.success("Imager process shut down! See you!")
 
     @loguru.logger.catch
@@ -163,6 +163,7 @@ class Worker(multiprocessing.Process):
             "acq_uuid": machine_name,
             "sample_uuid": machine_name,
         }
+        loguru.logger.debug(f"Saving metadata: {metadata}")
         try:
             output_path = _initialize_acquisition_directory(
                 "/home/pi/data/img",

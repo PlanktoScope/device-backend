@@ -8,14 +8,13 @@ import typing
 
 import loguru
 
-from planktoscope import mqtt
+from planktoscope import mqtt as messaging
 from planktoscope.camera import hardware, mjpeg
 
 loguru.logger.info("planktoscope.imager is loaded")
 
 
-# FIXME(ethanjli): simplify this class
-class Worker:
+class Worker(threading.Thread):
     """Runs a camera with live MJPEG preview and an MQTT API for adjusting camera settings.
 
     Attribs:
@@ -32,6 +31,8 @@ class Worker:
         Raises:
             ValueError: one or more values in the hardware config file are of the wrong type.
         """
+        super().__init__(name="camera")
+
         # Settings
         # FIXME(ethanjli): decompose config-loading to a separate module. That module should also be
         # where the file schema is defined!
@@ -64,66 +65,67 @@ class Worker:
 
         # I/O
         self._preview_stream: hardware.PreviewStream = hardware.PreviewStream()
+        self._mjpeg_server_address = mjpeg_server_address
         self.camera: hardware.PiCamera = hardware.PiCamera(self._preview_stream)
-        # Note(ethanjli): if we wanted to allow re-opening the worker after calling the `close()`
-        # method, we would need to initialize the streaming server & thread in the `open()` method.
-        # But we don't need to do that, so it's simpler to initialize them here rather than
-        # initializing them as `None` (and giving them `typing.Optional` types):
-        self._streaming_server = mjpeg.StreamingServer(self._preview_stream, mjpeg_server_address)
-        self._streaming_thread = threading.Thread(target=self._streaming_server.serve_forever)
-        # TODO(ethanjli): allow initializing the MQTT client without it immediately trying to
-        # connect to the message broker (i.e. add an `open()` method to the client!):
-        self._mqtt: typing.Optional[mqtt.MQTT_Client] = None
-        # Note(ethanjli): if we need to reduce the number of object members, we could convert this
-        # class to subclass threading.Thread, and just bring up (and tear down) some stuff in the
-        # `run()` method.
-        self._mqtt_receiver_thread: typing.Optional[threading.Thread] = None
-        self._mqtt_receiver_close = threading.Event()  # close() was called
+        self._event_loop_close = threading.Event()
 
     @loguru.logger.catch
-    def open(self) -> None:
-        """Start the camera and MJPEG preview stream."""
+    def run(self) -> None:
+        """Start the camera and run the main event loop."""
         loguru.logger.info("Initializing the camera with default settings...")
         self.camera.open()
         self.camera.settings = self._settings
 
         loguru.logger.info("Starting the MJPEG streaming server...")
-        self._streaming_thread.start()
+        streaming_server = mjpeg.StreamingServer(self._preview_stream, self._mjpeg_server_address)
+        streaming_thread = threading.Thread(target=streaming_server.serve_forever)
+        streaming_thread.start()
 
         loguru.logger.info("Starting the MQTT backend...")
         # TODO(ethanjli): expose the camera settings over "camera/settings" instead! This requires
         # removing the "settings" action from the "imager/image" route which is a breaking change
         # to the MQTT API, so we'll do this later.
-        self._mqtt = mqtt.MQTT_Client(topic="imager/image", name="imager_camera_client")
-        self._mqtt_receiver_close.clear()
-        self._mqtt_receiver_thread = threading.Thread(target=self._receive_messages)
-        self._mqtt_receiver_thread.start()
-        self._announce_camera_name()
+        mqtt = messaging.MQTT_Client(topic="imager/image", name="imager_camera_client")
+        # TODO(ethanjli): allow an MQTT client to trigger this broadcast with an MQTT command. This
+        # requires modifying the MQTT API (by adding a new route), and we'll want to make the
+        # Node-RED dashboard query that route at startup, so we'll do this later.
+        mqtt.client.publish("status/imager", json.dumps({"camera_name": self.camera.camera_name}))
 
-    def _receive_messages(self) -> None:
-        """Update internal state based on pump status updates received over MQTT."""
-        assert self._mqtt is not None
+        try:
+            while not self._event_loop_close.is_set():
+                if not mqtt.new_message_received():
+                    time.sleep(0.1)
+                    continue
+                loguru.logger.debug(mqtt.msg)
+                if (message := mqtt.msg) is None:
+                    continue
+                self._receive_message(message)
+                if (status_update := mqtt.read_message()) is not None:
+                    mqtt.client.publish("status/imager", status_update)
+        finally:
+            loguru.logger.info("Stopping the MQTT API...")
+            mqtt.shutdown()
 
-        while not self._mqtt_receiver_close.is_set():
-            if not self._mqtt.new_message_received():
-                time.sleep(0.1)
-                continue
-            loguru.logger.debug(self._mqtt.msg)
-            if (message := self._mqtt.msg) is None:
-                continue
-            self._receive_message(message)
-            self._mqtt.read_message()
+            loguru.logger.info("Stopping the MJPEG streaming server...")
+            streaming_server.shutdown()
+            streaming_server.server_close()
+            streaming_thread.join()
 
-    def _receive_message(self, message: dict[str, typing.Any]) -> None:
-        """Handle a single MQTT message."""
-        assert self._mqtt is not None
+            loguru.logger.info("Stopping the camera...")
+            self.camera.close()
 
+            loguru.logger.info("Done shutting down!")
+
+    def _receive_message(self, message: dict[str, typing.Any]) -> typing.Optional[str]:
+        """Handle a single MQTT message.
+
+        Returns a status update to broadcast.
+        """
         if message["topic"] != "imager/image" or message["payload"].get("action", "") != "settings":
-            return
+            return None
         if "settings" not in message["payload"]:
             loguru.logger.error(f"Received message is missing field 'settings': {message}")
-            self._mqtt.client.publish("status/imager", '{"status":"Camera settings error"}')
-            return
+            return '{"status":"Camera settings error"}'
 
         loguru.logger.info("Updating camera settings...")
         settings = message["payload"]["settings"]
@@ -136,54 +138,15 @@ class Worker:
             loguru.logger.exception(
                 f"Couldn't convert MQTT command to hardware settings: {settings}",
             )
-            self._mqtt.client.publish("status/imager", json.dumps({"status": f"Error: {str(e)}"}))
-            return
+            return json.dumps({"status": f"Error: {str(e)}"})
 
         self.camera.settings = converted_settings
-        self._mqtt.client.publish("status/imager", '{"status":"Camera settings updated"}')
         loguru.logger.info("Updated camera settings!")
+        return '{"status":"Camera settings updated"}'
 
-    # TODO(ethanjli): allow an MQTT client to trigger this method with an MQTT command. This
-    # requires modifying the MQTT API (by adding a new route), and we'll want to make the Node-RED
-    # dashboard query that route at startup, so we'll do this later.
-    def _announce_camera_name(self) -> None:
-        """Announce the camera's sensor name as a status update."""
-        assert self._mqtt is not None
-
-        camera_names = {
-            "IMX219": "Camera v2.1",
-            "IMX477": "Camera HQ",
-        }
-        self._mqtt.client.publish(
-            "status/imager",
-            json.dumps(
-                {"camera_name": camera_names.get(self.camera.sensor_name, "Not recognized")}
-            ),
-        )
-
-    def close(self) -> None:
-        """Close the camera, if it's currently open.
-
-        Stops the MQTTT receiver thread, the MJPEG streaming server, and the camera and block until
-        they all finish. After this method is called, the worker should be destroyed - no other
-        methods may be called.
-        """
-        if self._mqtt is not None:
-            loguru.logger.info("Stopping the MQTT API...")
-            self._mqtt_receiver_close.set()
-            if self._mqtt_receiver_thread is not None:
-                self._mqtt_receiver_thread.join()
-            self._mqtt_receiver_thread = None
-            self._mqtt.shutdown()
-            self._mqtt = None
-
-        loguru.logger.info("Stopping the MJPEG streaming server...")
-        self._streaming_server.shutdown()
-        self._streaming_server.server_close()
-        self._streaming_thread.join()
-
-        loguru.logger.info("Stopping the camera...")
-        self.camera.close()
+    def shutdown(self):
+        """Stop processing new MQTT messages and gracefully stop working."""
+        self._event_loop_close.set()
 
 
 def _convert_settings(
@@ -280,9 +243,10 @@ def _convert_white_balance_gain_settings(
     if "white_balance_gain" not in command_settings:
         return converted
 
-    # FIXME(ethanjli): use normal white-balance gains instead of the gains which are
-    # multiplied by 100 in the MQTT API, since the PlanktoScope GUI shows them without
-    # the multiplication by 100 anyways
+    # TODO(ethanjli): change the MQTT API use normal white-balance gains instead of the gains which
+    # are multiplied by 100, since the PlanktoScope GUI shows them without the multiplication by 100
+    # anyways. That will make the flow of values simpler and easier to follow, since we won't need
+    # to transform them on both sides of the API.
     try:
         red_gain = float(command_settings["white_balance_gain"]["red"]) / 100
     except ValueError as e:
@@ -305,10 +269,9 @@ def _convert_white_balance_gain_settings(
 
 
 # TODO(ethanjli): separate out the status from the error message in the MQTT API, so
-# that we can just directly use the error messages from the
-# `hardware.SettingsValues.validate()` method, and then we can delete this function. That would be
-# simpler; for now we're trying to keep the MQTT API unchanged, so we have this wrapper to return
-# different ValueErrors.
+# that we can just directly use the error messages from the `hardware.SettingsValues.validate()`
+# method, and then we can delete this function. That would be simpler; for now we're trying to keep
+# the MQTT API unchanged, so we have this wrapper to return different ValueErrors.
 def _validate_settings(settings: hardware.SettingsValues) -> None:
     """Check validity of camera hardware settings.
 

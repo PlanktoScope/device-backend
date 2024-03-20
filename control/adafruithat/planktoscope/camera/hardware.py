@@ -230,12 +230,12 @@ class PiCamera:
             loguru.logger.debug(f"New camera settings will be: {new_values}")
             if errors := new_values.validate():
                 raise ValueError(f"Invalid settings: {'; '.join(errors)}")
-            #loguru.logger.debug(f"Controls for picamera2: {updates.as_picamera2_controls()}")
+            # loguru.logger.debug(f"Controls for picamera2: {updates.as_picamera2_controls()}")
             loguru.logger.debug(f"Controls for picamera2: {new_values.as_picamera2_controls()}")
             # FIXME(ethanjli): for some reason, exposure time doesn't actually change; and the other
             # settings cause a crash. Maybe one of the values is in an incorrect format? Let's add
             # a test in test_preview.py for easier debugging/testing!
-            #self._camera.set_controls(updates.as_picamera2_controls())
+            # self._camera.set_controls(updates.as_picamera2_controls())
             self._camera.set_controls(new_values.as_picamera2_controls())
             for key, value in updates.as_picamera2_options().items():
                 self._camera.options[key] = value
@@ -259,6 +259,27 @@ class PiCamera:
         model = self._camera.camera_properties["Model"]
         assert isinstance(model, str)
         return model.upper()
+
+    @property
+    def camera_name(self) -> str:
+        """Name of the camera model.
+
+        Returns:
+            "Camera v2.1" for an IMX219 sensor, "Camera HQ" for an IMX477 sensor, or
+            "Not recognized" otherwise.
+
+        Raises:
+            RuntimeError: the method was called before the camera was started, or after it was
+              closed.
+        """
+        if self._camera is None:
+            raise RuntimeError("The camera has not been started yet!")
+
+        camera_names = {
+            "IMX219": "Camera v2.1",
+            "IMX477": "Camera HQ",
+        }
+        return camera_names.get(self.sensor_name, "Not recognized")
 
     @property
     def capture_size(self) -> tuple[int, int]:
