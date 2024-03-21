@@ -124,8 +124,7 @@ class Routine:
             return None
 
         with self._progress_lock:
-            timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d_%H-%M-%S-%f")
-            filename = f"{self._progress}_{timestamp}.jpg"
+            filename = f"{dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%d_%H-%M-%S-%f')}.jpg"
             capture_path = os.path.join(self.output_path, filename)
             loguru.logger.info(
                 f"Capturing image {self._progress}/{self.settings.total_images} to "
