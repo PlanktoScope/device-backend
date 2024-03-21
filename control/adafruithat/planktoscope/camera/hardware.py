@@ -241,9 +241,14 @@ class PiCamera:
 
         Blocks until the camera has started.
         """
-        loguru.logger.debug("Configuring the camera...")
-        self._camera = picamera2.Picamera2()
+        loguru.logger.debug("Initializing the camera...")
+        try:
+            self._camera = picamera2.Picamera2()
+        except RuntimeError as e:
+            self._camera = None
+            raise RuntimeError("Could not initialize the camera!") from e
 
+        loguru.logger.debug("Configuring the camera...")
         main_config: dict[str, typing.Any] = {}
         if (main_size := self._stream_config.capture_size) is not None:
             main_config["size"] = main_size

@@ -18,7 +18,10 @@ class Worker(threading.Thread):
     """Runs a camera with live MJPEG preview and an MQTT API for adjusting camera settings.
 
     Attribs:
-        camera: the underlying camera exposed by this MQTT API.
+        camera: the underlying camera exposed by this MQTT API. Don't access it until the
+          camera_checked event has been set!
+        camera_checked: when this event is set, either the camera is connected or has been
+          determined to be missing.
     """
 
     def __init__(self, mjpeg_server_address: tuple[str, int] = ("", 8000)) -> None:
@@ -66,16 +69,26 @@ class Worker(threading.Thread):
         # I/O
         self._preview_stream: hardware.PreviewStream = hardware.PreviewStream()
         self._mjpeg_server_address = mjpeg_server_address
-        self.camera: hardware.PiCamera = hardware.PiCamera(
+        self.camera: typing.Optional[hardware.PiCamera] = hardware.PiCamera(
             self._preview_stream, initial_settings=settings
         )
+        self.camera_checked = threading.Event()
         self._stop_event_loop = threading.Event()
 
     @loguru.logger.catch
     def run(self) -> None:
         """Start the camera and run the main event loop."""
+        assert self.camera is not None
+
         loguru.logger.info("Initializing the camera with default settings...")
-        self.camera.open()
+        try:
+            self.camera.open()
+        except RuntimeError:
+            loguru.logger.exception("Couldn't open the camera - maybe it's disconnected?")
+            self.camera = None
+            self.camera_checked.set()
+            return
+        self.camera_checked.set()
 
         loguru.logger.info("Starting the MJPEG streaming server...")
         streaming_server = mjpeg.StreamingServer(self._preview_stream, self._mjpeg_server_address)
@@ -114,6 +127,7 @@ class Worker(threading.Thread):
 
             loguru.logger.info("Stopping the camera...")
             self.camera.close()
+            self.camera = None
 
             loguru.logger.success("Done shutting down!")
 
@@ -123,6 +137,8 @@ class Worker(threading.Thread):
 
         Returns a status update to broadcast.
         """
+        assert self.camera is not None
+
         if message["topic"] != "imager/image" or message["payload"].get("action", "") != "settings":
             return None
         if "settings" not in message["payload"]:

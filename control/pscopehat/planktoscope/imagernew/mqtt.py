@@ -66,9 +66,26 @@ class Worker(multiprocessing.Process):
         loguru.logger.info("Starting the camera...")
         self._camera = camera.Worker()
         self._camera.start()
+        self._camera.camera_checked.wait()
+        if self._camera.camera is None:
+            loguru.logger.error("Missing camera - maybe it's disconnected or it never started?")
+            # TODO(ethanjli): officially add this error status to the MQTT API!
+            self._mqtt.client.publish("status/imager", '{"status": "Error: missing camera"}')
+            loguru.logger.success("Preemptively preparing to shut down since there's no camera...")
+            self._cleanup()
+            # Note(ethanjli): we just wait and do nothing until we receive the shutdown signal,
+            # because if we return early then the hardware controller will either shut down
+            # everything (current behavior) or try to restart the imager (planned behavior
+            # according to a TODO left by @gromain). If there's a third option to quit without
+            # being restarted or causing everything else to quit, then we could just clean up
+            # and return early here.
+            loguru.logger.success("Waiting for a shutdown signal...")
+            self._stop_event_loop.wait()
+            loguru.logger.success("Imager process shut down!")
+            return
+
         loguru.logger.success("Camera is ready!")
         self._mqtt.client.publish("status/imager", '{"status":"Ready"}')
-
         try:
             while not self._stop_event_loop.is_set():
                 if self._active_routine is not None and not self._active_routine.is_alive():
@@ -84,11 +101,21 @@ class Worker(multiprocessing.Process):
         finally:
             loguru.logger.info("Shutting down the imager process...")
             self._mqtt.client.publish("status/imager", '{"status":"Dead"}')
-            self._camera.shutdown()
-            self._pump.close()
+            self._cleanup()
+            loguru.logger.success("Imager process shut down!")
+
+    def _cleanup(self) -> None:
+        """Clean up everything running in the background."""
+        if self._mqtt is not None:
             self._mqtt.shutdown()
+            self._mqtt = None
+        if self._pump is not None:
+            self._pump.close()
+            self._pump = None
+        if self._camera is not None:
+            self._camera.shutdown()
             self._camera.join()
-            loguru.logger.success("Imager process shut down! See you!")
+            self._camera = None
 
     @loguru.logger.catch
     def _handle_new_message(self) -> None:
@@ -97,27 +124,23 @@ class Worker(multiprocessing.Process):
         if self._mqtt.msg is None:
             return
 
-        loguru.logger.info("we received a new message")
         if not self._mqtt.msg["topic"].startswith("imager/"):
-            loguru.logger.error(
-                f"the received message was not for us! topic was {self._mqtt.msg['topic']}"
-            )
             self._mqtt.read_message()
             return
 
         latest_message = self._mqtt.msg["payload"]
-        loguru.logger.debug(latest_message)
         action = self._mqtt.msg["payload"]["action"]
-        loguru.logger.debug(action)
-
+        self._mqtt.read_message()
         if action == "update_config":
             self._update_metadata(latest_message)
         elif action == "image":
-            self._start_acquisition(latest_message)
+            try:
+                self._start_acquisition(latest_message)
+            except RuntimeError:
+                loguru.logger.exception("Couldn't start image acquisition!")
         elif action == "stop" and self._active_routine is not None:
             self._active_routine.stop()
             self._active_routine = None
-        self._mqtt.read_message()
 
     def _update_metadata(self, latest_message: dict[str, typing.Any]) -> None:
         """Handle a new imager command to update the configuration (i.e. the metadata)."""
@@ -140,7 +163,7 @@ class Worker(multiprocessing.Process):
         loguru.logger.info("Updating configuration...")
         self._metadata = latest_message["config"]
         self._mqtt.client.publish("status/imager", '{"status":"Config updated"}')
-        loguru.logger.info("Updated configuration!")
+        loguru.logger.success("Updated configuration!")
 
     def _start_acquisition(self, latest_message: dict[str, typing.Any]) -> None:
         """Handle a new imager command to start image acquisition."""
@@ -148,19 +171,24 @@ class Worker(multiprocessing.Process):
         assert self._pump is not None
         assert self._camera is not None
 
-        if (settings := _parse_acquisition_settings(latest_message)) is None:
+        if (acquisition_settings := _parse_acquisition_settings(latest_message)) is None:
             self._mqtt.client.publish("status/imager", '{"status":"Error"}')
             return
+        if self._camera.camera is None:
+            loguru.logger.error("Missing camera - maybe it was closed?")
+            # TODO(ethanjli): officially add this error status to the MQTT API!
+            self._mqtt.client.publish("status/imager", '{"status": "Error: missing camera"}')
+            raise RuntimeError("Camera is not available")
 
-        capture_size = self._camera.camera.stream_config.capture_size
-        assert capture_size is not None
+        assert (capture_size := self._camera.camera.stream_config.capture_size) is not None
         camera_settings = self._camera.camera.settings
+        assert (image_gain := camera_settings.image_gain) is not None
         machine_name = identity.load_machine_name()
         metadata = {
             **self._metadata,
             "acq_local_datetime": datetime.datetime.now().isoformat().split(".")[0],
             "acq_camera_resolution": f"{capture_size[0]}x{capture_size[1]}",
-            "acq_camera_iso": camera_settings.exposure_time,
+            "acq_camera_iso": int(image_gain * 100),
             "acq_camera_shutter_speed": camera_settings.exposure_time,
             "acq_uuid": machine_name,
             "sample_uuid": machine_name,
@@ -181,7 +209,7 @@ class Worker(multiprocessing.Process):
             return
 
         self._active_routine = ImageAcquisitionRoutine(
-            stopflow.Routine(output_path, settings, self._pump, self._camera.camera),
+            stopflow.Routine(output_path, acquisition_settings, self._pump, self._camera.camera),
             self._mqtt,
         )
         self._active_routine.start()
@@ -247,7 +275,7 @@ def _initialize_acquisition_directory(
     Raises:
         ValueError: Acquisition directory initialization failed.
     """
-    loguru.logger.info("Setting up the directory structure for storing the pictures")
+    loguru.logger.info("Setting up the directory structure for storing the pictures...")
 
     if "object_date" not in metadata:  # needed for the directory path
         loguru.logger.error("The metadata did not contain object_date!")
