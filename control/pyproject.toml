@@ -88,9 +88,8 @@ numpy = [
   # the latest version and hope that the differences won't be significant enough to cause a
   # mismatch between CI and the production environment (i.e. the RPi):
   { version = "~1.26.4", source = "pypi", markers = "platform_machine != 'armv7l'" },
-  # This is the version pre-installed on RPi OS 11 (bullseye), and if we try to install a newer
-  # version we have to re-build the wheel for some reason.
-  { version = "==1.19.5", source = "piwheels", markers = "platform_machine == 'armv7l'" },
+  # This is a dependency of picamera2, which we're installing via apt on the Raspberry Pi to prevent
+  # poetry from trying to build this from source even though a wheel is available from piwheels.
 ]
 spidev = [
   { version = "~3.6", source = "pypi", markers = "platform_machine != 'armv7l'" },
@@ -98,25 +97,29 @@ spidev = [
 ]
 pidng = [
   { version = "~4.0.9", source = "pypi", markers = "platform_machine != 'armv7l'" },
-  { version = "~4.0.9", source = "piwheels", markers = "platform_machine == 'armv7l'" },
+  # This is a dependency of picamera2, which we're installing via apt on the Raspberry Pi to prevent
+  # poetry from trying to build this from source even though a wheel is available from piwheels.
 ]
 simplejpeg = [
   # This is the version pre-installed on RPi OS 11 (bullseye), and if we try to install a newer
   # version we have to re-build the wheel for some reason.
   { version = "==1.6.4", source = "pypi", markers = "platform_machine != 'armv7l'" },
-  { version = "==1.6.4", source = "piwheels", markers = "platform_machine == 'armv7l'" },
+  # This is a dependency of picamera2, which we're installing via apt on the Raspberry Pi to prevent
+  # poetry from trying to build this from source even though a wheel is available from piwheels.
 ]
 pillow = [
   # This is the version pre-installed on RPi OS 11 (bullseye), and if we try to install a newer
   # version we have to re-build the wheel for some reason.
   { version = "==8.1.2", source = "pypi", markers = "platform_machine != 'armv7l'" },
-  { version = "==8.1.2", source = "piwheels", markers = "platform_machine == 'armv7l'" },
+  # This is a dependency of picamera2, which we're installing via apt on the Raspberry Pi to prevent
+  # poetry from trying to build this from source even though a wheel is available from piwheels.
 ]
 # Note: av is required by picamera2; v10.0.0 is the latest version available on piwheels for
 # bullseye, while v11.0.0 is only for bookworm
 av = [
   { version = "~10.0.0", source = "pypi", markers = "platform_machine != 'armv7l'" },
-  { version = "~10.0.0", source = "piwheels", markers = "platform_machine == 'armv7l'" },
+  # This is a dependency of picamera2, which we're installing via apt on the Raspberry Pi to prevent
+  # poetry from trying to build this from source even though a wheel is available from piwheels.
 ]
 
 [tool.poetry.group.dev]
