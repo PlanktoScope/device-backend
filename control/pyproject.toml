@@ -59,8 +59,8 @@ readerwriterlock = "~1.0.9"
 
 [tool.poetry.group.hw.dependencies]
 rpi-gpio = [
-  { version = "~0.7.1a4", source = "pypi", markers = "platform_machine != 'armv7l'" },
-  { version = "~0.7.1a4", source = "piwheels", markers = "platform_machine == 'armv7l'" },
+  { version = "~0.7.0", source = "pypi", markers = "platform_machine != 'armv7l'" },
+  { version = "~0.7.0", source = "piwheels", markers = "platform_machine == 'armv7l'" },
 ]
 adafruit-blinka = "~8.19.0"
 adafruit-circuitpython-motorkit = "~1.6.3"
@@ -70,9 +70,6 @@ adafruit-platformdetect = "~3.45.2"
 picamerax = "~21.9.8"
 smbus2 = "~0.4.1"
 picamera = "~1.13"
-# Note(ethanjli): I think ==0.3.10 is needed for bullseye's libcamera? We should revisit this for
-# bookworm.
-picamera2 = "==0.3.12"
 # Note: the following packages are only indirect dependencies, but we need to download wheels from
 # the appropriate sources, so we must explicitly select them here
 rpi-ws281x = [
@@ -83,44 +80,25 @@ sysv-ipc = [
   { version = "~1.1.0", source = "pypi", markers = "platform_machine != 'armv7l'" },
   { version = "~1.1.0", source = "piwheels", markers = "platform_machine == 'armv7l'" },
 ]
-numpy = [
-  # v1.19.5 (needed for the RPi on bullseye) fails to install in GitHub Actions, so we just use
-  # the latest version and hope that the differences won't be significant enough to cause a
-  # mismatch between CI and the production environment (i.e. the RPi):
-  { version = "~1.26.4", source = "pypi", markers = "platform_machine != 'armv7l'" },
-  # This is a dependency of picamera2, which we're installing via apt on the Raspberry Pi to prevent
-  # poetry from trying to build this from source even though a wheel is available from piwheels.
-]
 spidev = [
-  { version = "~3.6", source = "pypi", markers = "platform_machine != 'armv7l'" },
-  { version = "~3.6", source = "piwheels", markers = "platform_machine == 'armv7l'" },
+  { version = "~3.5", source = "pypi", markers = "platform_machine != 'armv7l'" },
+  { version = "~3.5", source = "piwheels", markers = "platform_machine == 'armv7l'" },
 ]
-pidng = [
-  { version = "~4.0.9", source = "pypi", markers = "platform_machine != 'armv7l'" },
-  # This is a dependency of picamera2, which we're installing via apt on the Raspberry Pi to prevent
-  # poetry from trying to build this from source even though a wheel is available from piwheels.
-]
-simplejpeg = [
-  # This is the version pre-installed on RPi OS 11 (bullseye), and if we try to install a newer
-  # version we have to re-build the wheel for some reason.
-  { version = "==1.6.4", source = "pypi", markers = "platform_machine != 'armv7l'" },
-  # This is a dependency of picamera2, which we're installing via apt on the Raspberry Pi to prevent
-  # poetry from trying to build this from source even though a wheel is available from piwheels.
-]
-pillow = [
-  # This is the version pre-installed on RPi OS 11 (bullseye), and if we try to install a newer
-  # version we have to re-build the wheel for some reason.
-  { version = "==8.1.2", source = "pypi", markers = "platform_machine != 'armv7l'" },
-  # This is a dependency of picamera2, which we're installing via apt on the Raspberry Pi to prevent
-  # poetry from trying to build this from source even though a wheel is available from piwheels.
-]
-# Note: av is required by picamera2; v10.0.0 is the latest version available on piwheels for
-# bullseye, while v11.0.0 is only for bookworm
-av = [
-  { version = "~10.0.0", source = "pypi", markers = "platform_machine != 'armv7l'" },
-  # This is a dependency of picamera2, which we're installing via apt on the Raspberry Pi to prevent
-  # poetry from trying to build this from source even though a wheel is available from piwheels.
-]
+
+[tool.poetry.group.hw-dev]
+optional = true
+
+# Note: the following packages are only indirect dependencies of picamera2, and on the RPi we use
+# the system's installation of them (managed by apt-get) because poetry tries to build them from
+# source instead of installing the armv7l wheels. Maybe poetry is messing up at detecting the
+# machine platform or something.
+[tool.poetry.group.hw-dev.dependencies]
+# v1.19.5 (the version from the RPi on bullseye) fails to install in GitHub Actions, so we just use
+# the latest version and hope that the differences won't be significant enough to cause a mismatch
+# between CI and the production environment (i.e. the RPi):
+picamera2 = "==0.3.12"
+pillow = "==8.1.2"
+simplejpeg = "==1.6.4"
 
 [tool.poetry.group.dev]
 optional = true
