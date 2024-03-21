@@ -96,9 +96,24 @@ optional = true
 # v1.19.5 (the version from the RPi on bullseye) fails to install in GitHub Actions, so we just use
 # the latest version and hope that the differences won't be significant enough to cause a mismatch
 # between CI and the production environment (i.e. the RPi):
-picamera2 = "==0.3.12"
-pillow = "==8.1.2"
-simplejpeg = "==1.6.4"
+picamera2 = [
+  { version = "==0.3.12", source = "pypi", markers = "platform_machine != 'armv7l'" },
+]
+numpy = [
+  { version = "~1.26.4", source = "pypi", markers = "platform_machine != 'armv7l'" },
+]
+pidng = [
+  { version = "~4.0.9", source = "pypi", markers = "platform_machine != 'armv7l'" },
+]
+simplejpeg = [
+  { version = "==1.6.4", source = "pypi", markers = "platform_machine != 'armv7l'" },
+]
+pillow = [
+  { version = "==8.1.2", source = "pypi", markers = "platform_machine != 'armv7l'" },
+]
+av = [
+  { version = "10.0.0", source = "pypi", markers = "platform_machine != 'armv7l'" },
+]
 
 [tool.poetry.group.dev]
 optional = true
