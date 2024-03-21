@@ -21,6 +21,7 @@ All dates in this file are given in the [UTC time zone](https://en.wikipedia.org
 ### Fixed
 
 - (Breaking change; hardware controller) Images acquired by the hardware controller using the newly-default `imagernew` image-acquisition module now have more unique filenames (which include an incrementing index and the date of image capture, rather than just the time of the image capture).
+- (Hardware controller) The hardware controller using the newly-default `imagernew` image-acquisition module no longer crashes when invalid values are given for camera settings (e.g. null or non-numeric white balance gains).
 - (Hardware controller) The pixel calibration values have been switched between the default v2.5 hardware config file and the default v2.6 hardware config file, so that each file has the correct pixel calibration. The default pscopehat hardware config file has also been updated to include the changes made to the default v2.6 hardware config file.
 - (Breaking change; segmenter) The segmenter now runs as `root` (instead of `pi`) in the Docker container for it, so that it doesn't break on various actual & potential edge cases of files/directories being created with `root` ownership (rather than `pi` ownership) before being bind mounted into the container.
 
