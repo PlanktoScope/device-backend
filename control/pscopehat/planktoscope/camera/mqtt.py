@@ -135,7 +135,7 @@ class Worker(threading.Thread):
                 settings, self.camera.settings.white_balance_gains
             )
             _validate_settings(converted_settings)
-        except ValueError as e:
+        except (TypeError, ValueError) as e:
             loguru.logger.exception(
                 f"Couldn't convert MQTT command to hardware settings: {settings}",
             )
@@ -172,7 +172,7 @@ def _convert_settings(
     if "shutter_speed" in command_settings:
         try:
             exposure_time = int(command_settings["shutter_speed"])
-        except ValueError as e:
+        except (TypeError, ValueError) as e:
             raise ValueError("Shutter speed not valid") from e
         converted = converted._replace(exposure_time=exposure_time)
     converted = converted.overlay(_convert_image_gain_settings(command_settings))
@@ -214,7 +214,7 @@ def _convert_image_gain_settings(
     if "iso" in command_settings:
         try:
             iso = float(command_settings["iso"])
-        except ValueError as e:
+        except (TypeError, ValueError) as e:
             raise ValueError("Iso number not valid") from e
         converted = converted._replace(image_gain=iso / 100)
 
@@ -250,7 +250,7 @@ def _convert_white_balance_gain_settings(
     # to transform them on both sides of the API.
     try:
         red_gain = float(command_settings["white_balance_gain"]["red"]) / 100
-    except ValueError as e:
+    except (TypeError, ValueError) as e:
         raise ValueError("White balance gain not valid") from e
     except KeyError as e:
         if default_white_balance_gains is None:
@@ -258,7 +258,7 @@ def _convert_white_balance_gain_settings(
         red_gain = default_white_balance_gains.red
     try:
         blue_gain = float(command_settings["white_balance_gain"]["blue"]) / 100
-    except ValueError as e:
+    except (TypeError, ValueError) as e:
         raise ValueError("White balance gain not valid") from e
     except KeyError as e:
         if default_white_balance_gains is None:
