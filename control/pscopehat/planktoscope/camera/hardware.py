@@ -191,9 +191,15 @@ def config_to_settings_values(config: dict[str, typing.Any]) -> SettingsValues:
             red_gain = float(config["red_gain"])
             blue_gain = float(config["blue_gain"])
         except KeyError:
-            loguru.logger.error("One of the white balance gains is unspecified!")
+            loguru.logger.warning(
+                "One of the white balance gains is unspecified! Both gains will be ignored.",
+            )
+            return result
         except (TypeError, ValueError):
-            loguru.logger.error("White balance gains have incorrect type!")
+            loguru.logger.warning(
+                "White balance gains have incorrect type! Both gains will be ignored.",
+            )
+            return result
         result = result.overlay(
             SettingsValues(white_balance_gains=WhiteBalanceGains(red=red_gain, blue=blue_gain))
         )

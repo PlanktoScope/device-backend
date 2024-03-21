@@ -64,7 +64,6 @@ class _StreamingHandler(server.BaseHTTPRequestHandler):
         self.send_error(404)
         self.end_headers()
 
-    @loguru.logger.catch
     def _send_mjpeg_header(self) -> None:
         """Send the headers to start an MJPEG stream."""
         self.send_response(200)
