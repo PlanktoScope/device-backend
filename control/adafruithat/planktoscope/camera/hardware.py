@@ -349,7 +349,7 @@ class PiCamera:
         """Name of the camera model.
 
         Returns:
-            "Camera v2.1" for an IMX219 sensor, "Camera HQ" for an IMX477 sensor, or
+            "Camera v2.1" for an IMX219 sensor, "HQ Camera" for an IMX477 sensor, or
             "Not recognized" otherwise.
 
         Raises:
@@ -361,7 +361,9 @@ class PiCamera:
 
         camera_names = {
             "IMX219": "Camera v2.1",
-            "IMX477": "Camera HQ",
+            # Note(ethanjli): Currently the PlanktoScope GUI requires this to be "HQ Camera" rather
+            # than "Camera HQ".
+            "IMX477": "HQ Camera",
         }
         return camera_names.get(self.sensor_name, "Not recognized")
 
