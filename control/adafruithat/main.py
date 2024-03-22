@@ -114,8 +114,8 @@ if __name__ == "__main__":
     logger.info("Starting the imager control process (step 3/4)")
     try:
         imager_thread = imagernew.Worker(shutdown_event)
-    except:
-        logger.error("The imager control process could not be started")
+    except Exception as e:
+        logger.error(f"The imager control process could not be started: {e}")
         imager_thread = None
     else:
         imager_thread.start()
