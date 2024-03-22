@@ -49,7 +49,7 @@ class Worker(threading.Thread):
                 blue=1.35,
             ),
             sharpness=0,  # disable the default "normal" sharpening level
-            jpeg_quality=80,  # trade off between image file size and quality
+            jpeg_quality=95,  # trade off between image file size and quality
         )
         # Settings
         if os.path.exists("/home/pi/PlanktoScope/hardware.json"):
