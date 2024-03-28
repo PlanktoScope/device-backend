@@ -1,4 +1,4 @@
-"""mqtt provides an MJPEG+MQTT API for camera interaction."""
+"""mqtt provides an MJPEG+MQTT API for camera supervision and interaction."""
 
 import json
 import os
@@ -15,27 +15,21 @@ loguru.logger.info("planktoscope.camera is loaded")
 
 
 class Worker(threading.Thread):
-    """Runs a camera with live MJPEG preview and an MQTT API for adjusting camera settings.
-
-    Attribs:
-        camera: the underlying camera exposed by this MQTT API. Don't access it until the
-          camera_checked event has been set!
-        camera_checked: when this event is set, either the camera is connected or has been
-          determined to be missing.
-    """
+    """Runs a camera with live MJPEG preview and an MQTT API for adjusting camera settings."""
 
     def __init__(self, mjpeg_server_address: tuple[str, int] = ("", 8000)) -> None:
         """Initialize the backend.
 
         Args:
-            mqtt_client: an MQTT client.
-            exposure_time: the default value for initializing the camera's exposure time.
+            mjpeg_server_address: the host and port for the MJPEG camera preview server to listen
+              on.
 
         Raises:
             ValueError: one or more values in the hardware config file are of the wrong type.
         """
         super().__init__(name="camera")
 
+        # Settings
         settings = hardware.SettingsValues(
             auto_exposure=False,
             exposure_time=125,  # the default (minimum) exposure time in the PlanktoScope GUI
@@ -49,9 +43,8 @@ class Worker(threading.Thread):
                 blue=1.35,
             ),
             sharpness=0,  # disable the default "normal" sharpening level
-            jpeg_quality=95,  # trade off between image file size and quality
+            jpeg_quality=95,  # maximize image quality
         )
-        # Settings
         if os.path.exists("/home/pi/PlanktoScope/hardware.json"):
             # load hardware.json
             with open("/home/pi/PlanktoScope/hardware.json", "r", encoding="utf-8") as config_file:
@@ -175,8 +168,11 @@ def _convert_settings(
 
     Args:
         command_settings: the settings to convert.
-        default_white_balance_gains: white-balance gains to substitute for missing values if exactly
-          one gain is provided.
+        default_white_balance_gains: white-balance gains to substitute for missing values, if
+          exactly one gain was provided in `command_settings`.
+
+    Returns:
+        All settings extracted from the MQTT command.
 
     Raises:
         ValueError: at least one of the MQTT command settings is invalid.
@@ -253,6 +249,10 @@ def _convert_white_balance_gain_settings(
         command_settings: the settings to convert.
         default_white_balance_gains: white-balance gains to substitute for missing values if exactly
           one gain is provided.
+
+    Returns:
+        Any white balance gain-related settings extracted from the MQTT command, but no other
+        settings.
 
     Raises:
         ValueError: at least one of the MQTT command settings is invalid.
