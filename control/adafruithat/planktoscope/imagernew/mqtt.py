@@ -74,7 +74,6 @@ class Worker(multiprocessing.Process):
         loguru.logger.info("Starting the camera...")
         self._camera = camera.Worker()
         self._camera.start()
-        self._camera.camera_checked.wait()
         if self._camera.camera is None:
             loguru.logger.error("Missing camera - maybe it's disconnected or it never started?")
             # TODO(ethanjli): officially add this error status to the MQTT API!

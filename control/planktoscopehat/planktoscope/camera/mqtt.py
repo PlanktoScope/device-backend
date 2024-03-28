@@ -62,26 +62,26 @@ class Worker(threading.Thread):
         # I/O
         self._preview_stream: hardware.PreviewStream = hardware.PreviewStream()
         self._mjpeg_server_address = mjpeg_server_address
-        self.camera: typing.Optional[hardware.PiCamera] = hardware.PiCamera(
+        self._camera: typing.Optional[hardware.PiCamera] = hardware.PiCamera(
             self._preview_stream, initial_settings=settings
         )
-        self.camera_checked = threading.Event()
+        self._camera_checked = threading.Event()
         self._stop_event_loop = threading.Event()
 
     @loguru.logger.catch
     def run(self) -> None:
         """Start the camera and run the main event loop."""
-        assert self.camera is not None
+        assert self._camera is not None
 
         loguru.logger.info("Initializing the camera with default settings...")
         try:
-            self.camera.open()
+            self._camera.open()
         except RuntimeError:
             loguru.logger.exception("Couldn't open the camera - maybe it's disconnected?")
-            self.camera = None
-            self.camera_checked.set()
+            self._camera = None
+            self._camera_checked.set()
             return
-        self.camera_checked.set()
+        self._camera_checked.set()
 
         loguru.logger.info("Starting the MJPEG streaming server...")
         streaming_server = mjpeg.StreamingServer(self._preview_stream, self._mjpeg_server_address)
@@ -96,7 +96,7 @@ class Worker(threading.Thread):
         # TODO(ethanjli): allow an MQTT client to trigger this broadcast with an MQTT command. This
         # requires modifying the MQTT API (by adding a new route), and we'll want to make the
         # Node-RED dashboard query that route at startup, so we'll do this later.
-        mqtt.client.publish("status/imager", json.dumps({"camera_name": self.camera.camera_name}))
+        mqtt.client.publish("status/imager", json.dumps({"camera_name": self._camera.camera_name}))
 
         try:
             while not self._stop_event_loop.is_set():
@@ -119,8 +119,8 @@ class Worker(threading.Thread):
             streaming_thread.join()
 
             loguru.logger.info("Stopping the camera...")
-            self.camera.close()
-            self.camera = None
+            self._camera.close()
+            self._camera = None
 
             loguru.logger.success("Done shutting down!")
 
@@ -130,7 +130,7 @@ class Worker(threading.Thread):
 
         Returns a status update to broadcast.
         """
-        assert self.camera is not None
+        assert self._camera is not None
 
         if message["topic"] != "imager/image" or message["payload"].get("action", "") != "settings":
             return None
@@ -142,7 +142,7 @@ class Worker(threading.Thread):
         settings = message["payload"]["settings"]
         try:
             converted_settings = _convert_settings(
-                settings, self.camera.settings.white_balance_gains
+                settings, self._camera.settings.white_balance_gains
             )
             _validate_settings(converted_settings)
         except (TypeError, ValueError) as e:
@@ -151,9 +151,23 @@ class Worker(threading.Thread):
             )
             return json.dumps({"status": f"Error: {str(e)}"})
 
-        self.camera.settings = converted_settings
+        self._camera.settings = converted_settings
         loguru.logger.success("Updated camera settings!")
         return '{"status":"Camera settings updated"}'
+
+    @property
+    def camera(self) -> typing.Optional[hardware.PiCamera]:
+        """Return the camera wrapper managed by this worker.
+
+        Blocks until this worker has attempted to start the camera (so this property will wait until
+        this worker has been started as a thread).
+
+        Returns:
+            The camera wrapper if it started successfully, or None if the camera wrapper could not
+            be started (e.g. because the camera does not exists).
+        """
+        self._camera_checked.wait()
+        return self._camera
 
     def shutdown(self):
         """Stop processing new MQTT messages and gracefully stop working."""
