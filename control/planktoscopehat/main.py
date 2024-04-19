@@ -127,14 +127,14 @@ if __name__ == "__main__":
 
     while run:
         # TODO look into ways of restarting the dead threads
-        logger.trace("Continuously monitoring for unexpected terminations...")
-        # Check if any threads have terminated unexpectedly and log the error
+        logger.trace("Running around in circles while waiting for someone to die!")
+        # Check if any threads have terminated unexpectedly and log the error without exiting
         for thread_name, thread in running_threads.items():
-            if thread and not thread.is_alive():
+            if not thread or not thread.is_alive():
                 logger.error(f"The {thread_name} process terminated unexpectedly!")
-                running_threads[thread_name] = None
+                del running_threads[thread_name]  # Remove the dead thread from the dictionary
         # Check if all threads have terminated so we can exit the program 
-        if all(thread is None for thread in running_threads.values()):
+        if not running_threads: #checks if there is no running thread left 
             logger.error("All processes terminated unexpectedly! Exiting...")
             break
         time.sleep(1)
