@@ -118,16 +118,27 @@ if __name__ == "__main__":
 
     logger.success("Looks like everything is set up and running, have fun!")
 
+    # With the creation of this dictionary to keep track of running threads, we can easily
+    # update the code if we decide to add another process, such as for the pump.
+    running_threads = {
+    "stepper": stepper_thread,
+    "imager": imager_thread  
+    }
+
     while run:
         # TODO look into ways of restarting the dead threads
-        logger.trace("Running around in circles while waiting for someone to die!")
-        if not stepper_thread.is_alive():
-            logger.error("The stepper process died unexpectedly! Oh no!")
-            break
-        if not imager_thread or not imager_thread.is_alive():
-            logger.error("The imager process died unexpectedly! Oh no!")
+        logger.trace("Continuously monitoring for unexpected terminations...")
+        # Check if any threads have terminated unexpectedly and log the error
+        for thread_name, thread in running_threads.items():
+            if thread and not thread.is_alive():
+                logger.error(f"The {thread_name} process terminated unexpectedly!")
+                running_threads[thread_name] = None
+        # Check if all threads have terminated so we can exit the program 
+        if all(thread is None for thread in running_threads.values()):
+            logger.error("All processes terminated unexpectedly! Exiting...")
             break
         time.sleep(1)
+
 
     display.display_text("Bye Bye!")
     logger.info("Shutting down the shop")
