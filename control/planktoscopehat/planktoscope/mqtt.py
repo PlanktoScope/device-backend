@@ -149,18 +149,19 @@ class MQTT_Client:
         # TODO for now, we just log the disconnection, we need to evaluate what to do
         # in case of communication loss with the server
 
-   @logger.catch
-   def reconnect(self):git 
+    @logger.catch
+    def reconnect(self):
         while True:
             try:
                 logger.info("Trying to reconnect to the MQTT server...")
                 self.client.connect(self.server, self.port, 60)
-                self.client.loop_start()  
+                self.client.loop_start()
                 logger.success("Reconnected to MQTT server")
                 break  
-            except Exception as self.name:
-                logger.error(f"Reconnection to the MQTT is failed by {self.name}")
-                time.sleep(10)  
+            except Exception as e:
+                logger.error(f"Reconnection to the MQTT server failed: {self.name}")
+                time.sleep(10) 
+
 
         def new_message_received(self):
             return self.__new_message
