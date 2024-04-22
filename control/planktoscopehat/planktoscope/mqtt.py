@@ -150,23 +150,23 @@ class MQTT_Client:
 
    @logger.catch
    def reconnect(self):
-    while True:
-        try:
-            logger.info("Trying to reconnect to the MQTT server...")
-            self.client.connect(self.server, self.port, 60)
-            self.client.loop_start()  
-            logger.success("Reconnected to MQTT server")
-            break  
-        except Exception as self.name:
-            logger.error(f"Reconnection to the MQTT is failed by {self.name}")
-            time.sleep(10)  
+        while True:
+            try:
+                logger.info("Trying to reconnect to the MQTT server...")
+                self.client.connect(self.server, self.port, 60)
+                self.client.loop_start()  
+                logger.success("Reconnected to MQTT server")
+                break  
+            except Exception as self.name:
+                logger.error(f"Reconnection to the MQTT is failed by {self.name}")
+                time.sleep(10)  
 
-    def new_message_received(self):
-        return self.__new_message
+        def new_message_received(self):
+            return self.__new_message
 
-    def read_message(self):
-        logger.debug("clearing the __new_message flag")
-        self.__new_message = False
+        def read_message(self):
+            logger.debug("clearing the __new_message flag")
+            self.__new_message = False
 
     @logger.catch
     def shutdown(self, topic="", message=""):
