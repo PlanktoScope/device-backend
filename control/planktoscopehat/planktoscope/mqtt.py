@@ -92,6 +92,7 @@ class MQTT_Client:
         self.client.on_subscribe = self.on_subscribe
         self.client.on_message = self.on_message
         self.client.on_disconnect = self.on_disconnect
+        self.client.reconnect= self.reconnect
         self.client.loop_start()
 
     ################################################################################
@@ -149,7 +150,7 @@ class MQTT_Client:
         # in case of communication loss with the server
 
    @logger.catch
-   def reconnect(self):
+   def reconnect(self):git 
         while True:
             try:
                 logger.info("Trying to reconnect to the MQTT server...")
