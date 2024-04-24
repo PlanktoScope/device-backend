@@ -71,7 +71,9 @@ SUBTRACT_CONSECUTIVE_MASKS = os.getenv(
     "False"
 ).lower() in ('true', '1', 't')
 if SUBTRACT_CONSECUTIVE_MASKS:
-    logger.info("planktoscope.segmenter will subtract masks between consecutive raw frames!")
+    logger.info("The segmentation pipeline {will} subtract masks between consecutive raw frames!")
+else:
+    logger.info("The segmentation pipeline {will} NOT subtract masks between consecutive raw frames!")
 
 
 ################################################################################
