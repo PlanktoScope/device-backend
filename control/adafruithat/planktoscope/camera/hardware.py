@@ -290,9 +290,10 @@ class PiCamera:
             # `MJPEGEncoder` instead:
             encoders.MJPEGEncoder(bitrate=self._stream_config.preview_bitrate),
             outputs.FileOutput(self._preview_output),
-            # If we specify quality, it overrides the bitrate (contrary to what the picamera2 docs
-            # say (refer to https://github.com/raspberrypi/picamera2/blob/a89eb1dc39578fb764d792d83ba34095a9597f80/picamera2/encoders/mjpeg_encoder.py#L23):
-            #quality=encoders.Quality.VERY_HIGH,
+            # If we specify quality, it overrides the bitrate, contrary to what the picamera2 docs
+            # say (refer to
+            # github.com/raspberrypi/picamera2/blob/main/picamera2/encoders/mjpeg_encoder.py#L23):
+            # quality=encoders.Quality.VERY_HIGH,
             name="lores",
         )
 
