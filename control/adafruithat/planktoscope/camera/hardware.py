@@ -219,7 +219,7 @@ class PiCamera:
     def __init__(
         self,
         preview_output: io.BufferedIOBase,
-        stream_config: StreamConfig = StreamConfig(preview_size=(640, 480), buffer_count=3),
+        stream_config: StreamConfig = StreamConfig(preview_size=(960, 720), buffer_count=3),
         initial_settings: SettingsValues = SettingsValues(),
     ) -> None:
         """Set up state needed to initialize the camera, but don't actually start the camera yet.
