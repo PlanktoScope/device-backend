@@ -36,6 +36,14 @@ And you can run all checks (including code formatting and linting) by running:
 poetry run poe check
 ```
 
+If you'd like to copy your files to a remote PlanktoScope, you can run:
+```
+HOST=pkscope.local poetry run scp
+```
+from the directory which contains this readme. Note that this command requires that you have a
+`scp` command (so you probably need to be running on Linux or macOS, or on Windows Subsystem for
+Linux). And you can change `pkscope.local` to something else (e.g. `home.pkscope`) if needed.
+
 ### Prerequisites
 
 To use this project, you'll need:
