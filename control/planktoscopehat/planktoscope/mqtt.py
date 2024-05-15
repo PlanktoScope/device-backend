@@ -53,6 +53,7 @@
 # We can use collections.deque https://docs.python.org/3/library/collections.html#collections.deque
 import paho.mqtt.client as mqtt
 import json
+import time
 
 # Logger library compatible with multiprocessing
 from loguru import logger
@@ -92,7 +93,6 @@ class MQTT_Client:
         self.client.on_subscribe = self.on_subscribe
         self.client.on_message = self.on_message
         self.client.on_disconnect = self.on_disconnect
-        self.client.reconnect= self.reconnect
         self.client.loop_start()
 
     ################################################################################
@@ -163,10 +163,10 @@ class MQTT_Client:
                 time.sleep(10) 
 
 
-        def new_message_received(self):
+    def new_message_received(self):
             return self.__new_message
 
-        def read_message(self):
+    def read_message(self):
             logger.debug("clearing the __new_message flag")
             self.__new_message = False
 
