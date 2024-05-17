@@ -137,7 +137,7 @@ jobs:
           IS_MAIN_BRANCH: ${{ github.ref == format('refs/heads/{0}', env.MAIN_BRANCH) }}
           IS_BETA_BRANCH: ${{ github.ref == format('refs/heads/{0}', env.BETA_BRANCH) }}
           IS_STABLE_BRANCH: ${{ github.ref == format('refs/heads/{0}', env.STABLE_BRANCH) }}
-          HAS_PR_SHA: ${{ github.event.pull_request.head.sha != '' }}
+          HAS_PR_SHA: ${{ env.PR_SHA != '' }}
         with:
           images: ${{ steps.image_registry_case.outputs.lowercase }}
           tags: |
