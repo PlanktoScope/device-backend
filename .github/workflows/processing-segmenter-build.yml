@@ -104,7 +104,7 @@ jobs:
           retention-days: 1
 
   merge:
-    if: env.PUSH_IMAGE
+    #if: env.PUSH_IMAGE
     runs-on: ubuntu-latest
     needs:
       - build
@@ -115,3 +115,60 @@ jobs:
           path: /tmp/digests
           pattern: digests-*
           merge-multiple: true
+
+      # Work around a bug where capital letters in the GitHub username (e.g. "PlanktoScope") make it
+      # impossible to push to GHCR. See https://github.com/macbre/push-to-ghcr/issues/12
+      - name: Lowercase image registry and owner
+        id: image_registry_case
+        uses: ASzc/change-string-case-action@v6
+        with:
+          string: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      - name: Get SHA of commit on PR
+        if: github.event.pull_request.head.sha
+        # Get the SHA of the actual commit (not the fake merge commit) on PR-triggered runs
+        # (refer to https://stackoverflow.com/a/68068674/23202949):
+        run: printf "PR_SHA=%.7s" "${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
+
+      # Build and publish Docker container image
+      - name: Get Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        env:
+          IS_MAIN_BRANCH: ${{ github.ref == format('refs/heads/{0}', env.MAIN_BRANCH) }}
+          IS_BETA_BRANCH: ${{ github.ref == format('refs/heads/{0}', env.BETA_BRANCH) }}
+          IS_STABLE_BRANCH: ${{ github.ref == format('refs/heads/{0}', env.STABLE_BRANCH) }}
+          HAS_PR_SHA: ${{ github.event.pull_request.head.sha != '' }}
+        with:
+          images: ${{ steps.image_registry_case.outputs.lowercase }}
+          tags: |
+            type=match,pattern=${{ env.TAG_PREFIX }}(.*),group=1 # this implicitly updates latest
+            type=raw,value=stable,enable=${{ env.IS_STABLE_BRANCH }},priority=702
+            type=raw,value=beta,enable=${{ env.IS_BETA_BRANCH }},priority=701
+            type=edge,branch=${{ env.MAIN_BRANCH }}
+            type=ref,event=pr
+            type=ref,event=pr,suffix=-sha-${{ env.PR_SHA }},enable=${{ env.HAS_PR_SHA }},priority=599
+            type=raw,value=sha-${{ env.PR_SHA }},enable=${{ env.HAS_PR_SHA }},priority=100
+            type=sha,enable=${{ !env.HAS_PR_SHA }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ steps.image_registry_case.outputs.lowercase }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect \
+            ${{ steps.image_registry_case.outputs.lowercase }}:${{ steps.meta.outputs.version }}
