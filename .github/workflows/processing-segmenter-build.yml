@@ -115,17 +115,3 @@ jobs:
           path: /tmp/digests
           pattern: digests-*
           merge-multiple: true
-
-      # Work around a bug where capital letters in the GitHub username (e.g. "PlanktoScope") make it
-      # impossible to push to GHCR. See https://github.com/macbre/push-to-ghcr/issues/12
-      - name: Lowercase image registry and owner
-        id: image_registry_case
-        uses: ASzc/change-string-case-action@v6
-        with:
-          string: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}
-
-      - name: Get SHA of commit on PR
-        if: github.event.pull_request.head.sha
-        # Get the SHA of the actual commit (not the fake merge commit) on PR-triggered runs
-        # (refer to https://stackoverflow.com/a/68068674/23202949):
-        run: printf "PR_SHA=%.7s" "${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
