@@ -1,15 +1,16 @@
 # Libraries to control the steppers for focusing and pumping
-import time
 import json
-import os
-import planktoscope.mqtt
 import multiprocessing
-import RPi.GPIO
+import os
+import time
 
-import shush
+import RPi.GPIO
 
 # Logger library compatible with multiprocessing
 from loguru import logger
+
+import planktoscope.mqtt
+import shush
 
 logger.info("planktoscope.stepper is loaded")
 
@@ -122,13 +123,13 @@ class stepper:
         logger.debug(f"Setting stepper deceleration to {deceleration}")
         self.__stepper.ramp_DMAX = int(deceleration)
 
+
 class FocusProcess(multiprocessing.Process):
     focus_steps_per_mm = 40
     # 507 steps per ml for PlanktoScope standard
-    
+
     # focus max speed is in mm/sec and is limited by the maximum number of pulses per second the PlanktoScope can send
     focus_max_speed = 5
-    
 
     def __init__(self, event):
         super(FocusProcess, self).__init__()
@@ -145,21 +146,15 @@ class FocusProcess(multiprocessing.Process):
                 configuration = json.load(config_file)
                 logger.debug(f"Hardware configuration loaded is {configuration}")
         else:
-            logger.info(
-                "The hardware configuration file doesn't exists, using defaults"
-            )
+            logger.info("The hardware configuration file doesn't exists, using defaults")
             configuration = {}
 
         reverse = False
 
         # parse the config data. If the key is absent, we are using the default value
         reverse = configuration.get("stepper_reverse", reverse)
-        self.focus_steps_per_mm = configuration.get(
-            "focus_steps_per_mm", self.focus_steps_per_mm
-        )
-        self.focus_max_speed = configuration.get(
-            "focus_max_speed", self.focus_max_speed
-        )
+        self.focus_steps_per_mm = configuration.get("focus_steps_per_mm", self.focus_steps_per_mm)
+        self.focus_max_speed = configuration.get("focus_max_speed", self.focus_max_speed)
 
         # define the names for the 2 exsting steppers
         if reverse:
@@ -177,12 +172,9 @@ class FocusProcess(multiprocessing.Process):
 
         self.pump_stepper.acceleration = 2000
         self.pump_stepper.deceleration = self.pump_stepper.acceleration
-        self.pump_stepper.speed = (
-            self.pump_max_speed * self.pump_steps_per_ml * 256 / 60
-        )
+        self.pump_stepper.speed = self.pump_max_speed * self.pump_steps_per_ml * 256 / 60
 
         logger.info("Stepper initialisation is over")
-
 
     def __message_focus(self, last_message):
         logger.debug("We have received a focusing request")
@@ -195,20 +187,14 @@ class FocusProcess(multiprocessing.Process):
             logger.info("The focus has been interrupted")
 
             # Publish the status "Interrupted" to via MQTT to Node-RED
-            self.actuator_client.client.publish(
-                "status/focus", '{"status":"Interrupted"}'
-            )
+            self.actuator_client.client.publish("status/focus", '{"status":"Interrupted"}')
 
         elif last_message["action"] == "move":
             logger.debug("We have received a move focus command")
 
             if "direction" not in last_message or "distance" not in last_message:
-                logger.error(
-                    f"The received message has the wrong argument {last_message}"
-                )
-                self.actuator_client.client.publish(
-                    "status/focus", '{"status":"Error"}'
-                )
+                logger.error(f"The received message has the wrong argument {last_message}")
+                self.actuator_client.client.publish("status/focus", '{"status":"Error"}')
             # Get direction from the different received arguments
             direction = last_message["direction"]
             # Get number of steps from the different received arguments
@@ -239,9 +225,7 @@ class FocusProcess(multiprocessing.Process):
         elif command == "focus":
             self.__message_focus(last_message)
         elif command != "":
-            logger.warning(
-                f"We did not understand the received request {command} - {last_message}"
-            )
+            logger.warning(f"We did not understand the received request {command} - {last_message}")
 
     def focus(self, direction, distance, speed=focus_max_speed):
         """Moves the focus stepper
@@ -256,9 +240,7 @@ class FocusProcess(multiprocessing.Process):
             speed (int, optional): max speed of the stage, in mm/sec. Defaults to focus_max_speed.
         """
 
-        logger.info(
-            f"The focus stage will move {direction} for {distance}mm at {speed}mm/sec"
-        )
+        logger.info(f"The focus stage will move {direction} for {distance}mm at {speed}mm/sec")
 
         # Validation of inputs
         if direction not in ["UP", "DOWN"]:
@@ -304,13 +286,11 @@ class FocusProcess(multiprocessing.Process):
     # NEMA14 pump with 3 rollers is 0.509 mL per round, actual calculation at
     # Stepper is 200 steps/round, or 393steps/ml
     # https://www.wolframalpha.com/input/?i=pi+*+%280.8mm%29%C2%B2+*+54mm+*+3
-    
+
     @logger.catch
     def run(self):
         """This is the function that needs to be started to create a thread"""
-        logger.info(
-            f"The stepper control process has been started in process {os.getpid()}"
-        )
+        logger.info(f"The stepper control process has been started in process {os.getpid()}")
 
         # Creates the MQTT Client
         # We have to create it here, otherwise when the process running run is started
