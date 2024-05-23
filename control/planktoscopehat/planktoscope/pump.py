@@ -160,17 +160,12 @@ class PumpProcess(multiprocessing.Process):
         # define the names for the 2 exsting steppers
         if reverse:
             self.pump_stepper = stepper(STEPPER2)
-            self.focus_stepper = stepper(STEPPER1, size=45)
+            
         else:
             self.pump_stepper = stepper(STEPPER1)
-            self.focus_stepper = stepper(STEPPER2, size=45)
+            
 
         # Set pump controller max speed
-
-        self.focus_stepper.acceleration = 1000
-        self.focus_stepper.deceleration = self.focus_stepper.acceleration
-        self.focus_stepper.speed = self.focus_max_speed * self.focus_steps_per_mm * 256
-
         self.pump_stepper.acceleration = 2000
         self.pump_stepper.deceleration = self.pump_stepper.acceleration
         self.pump_stepper.speed = self.pump_max_speed * self.pump_steps_per_ml * 256 / 60
@@ -233,8 +228,6 @@ class PumpProcess(multiprocessing.Process):
 
         if command == "pump":
             self.__message_pump(last_message)
-        elif command == "focus":
-            self.__message_focus(last_message)
         elif command != "":
             logger.warning(f"We did not understand the received request {command} - {last_message}")
 
@@ -271,7 +264,7 @@ class PumpProcess(multiprocessing.Process):
             f'{{"status":"Started", "duration":{nb_steps / steps_per_second}}}',
         )
 
-        # Depending on direction, select the right direction for the focus
+        # Depending on direction, select the right direction for the pump
         if direction == "FORWARD":
             self.pump_started = True
             self.pump_stepper.go(FORWARD, nb_steps)

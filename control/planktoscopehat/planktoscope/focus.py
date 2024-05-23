@@ -1,4 +1,4 @@
-# Libraries to control the steppers for focusing and pumping
+# Libraries to control the steppers for focusing 
 import json
 import multiprocessing
 import os
@@ -137,7 +137,7 @@ class FocusProcess(multiprocessing.Process):
 
         self.stop_event = event
         self.focus_started = False
-        self.pump_started = False
+        
 
         if os.path.exists("/home/pi/PlanktoScope/hardware.json"):
             # load hardware.json
@@ -158,10 +158,10 @@ class FocusProcess(multiprocessing.Process):
 
         # define the names for the 2 exsting steppers
         if reverse:
-            self.pump_stepper = stepper(STEPPER2)
+            
             self.focus_stepper = stepper(STEPPER1, size=45)
         else:
-            self.pump_stepper = stepper(STEPPER1)
+            
             self.focus_stepper = stepper(STEPPER2, size=45)
 
         # Set stepper controller max speed
@@ -170,11 +170,7 @@ class FocusProcess(multiprocessing.Process):
         self.focus_stepper.deceleration = self.focus_stepper.acceleration
         self.focus_stepper.speed = self.focus_max_speed * self.focus_steps_per_mm * 256
 
-        self.pump_stepper.acceleration = 2000
-        self.pump_stepper.deceleration = self.pump_stepper.acceleration
-        self.pump_stepper.speed = self.pump_max_speed * self.pump_steps_per_ml * 256 / 60
-
-        logger.info("Stepper initialisation is over")
+        logger.info("the focus stepper initialisation is over")
 
     def __message_focus(self, last_message):
         logger.debug("We have received a focusing request")
@@ -220,9 +216,8 @@ class FocusProcess(multiprocessing.Process):
         logger.debug(command)
         self.actuator_client.read_message()
 
-        if command == "pump":
-            self.__message_pump(last_message)
-        elif command == "focus":
+    
+        if command == "focus":
             self.__message_focus(last_message)
         elif command != "":
             logger.warning(f"We did not understand the received request {command} - {last_message}")
@@ -301,22 +296,12 @@ class FocusProcess(multiprocessing.Process):
             topic="actuator/#", name="actuator_client"
         )
         # Publish the status "Ready" to via MQTT to Node-RED
-        self.actuator_client.client.publish("status/pump", '{"status":"Ready"}')
-        # Publish the status "Ready" to via MQTT to Node-RED
         self.actuator_client.client.publish("status/focus", '{"status":"Ready"}')
 
         logger.success("Stepper is READY!")
         while not self.stop_event.is_set():
             if self.actuator_client.new_message_received():
                 self.treat_command()
-            if self.pump_started and self.pump_stepper.at_goal():
-                logger.success("The pump movement is over!")
-                self.actuator_client.client.publish(
-                    "status/pump",
-                    '{"status":"Done"}',
-                )
-                self.pump_started = False
-                self.pump_stepper.release()
             if self.focus_started and self.focus_stepper.at_goal():
                 logger.success("The focus movement is over!")
                 self.actuator_client.client.publish(
@@ -324,12 +309,10 @@ class FocusProcess(multiprocessing.Process):
                     '{"status":"Done"}',
                 )
                 self.focus_started = False
-                self.pump_stepper.release()
+                self.stop_event.set()  # Signal pump to stop
             time.sleep(0.01)
         logger.info("Shutting down the stepper process")
-        self.actuator_client.client.publish("status/pump", '{"status":"Dead"}')
         self.actuator_client.client.publish("status/focus", '{"status":"Dead"}')
-        self.pump_stepper.shutdown()
         self.focus_stepper.shutdown()
         self.actuator_client.shutdown()
         logger.success("Stepper process shut down! See you!")

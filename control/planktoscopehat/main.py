@@ -6,10 +6,12 @@ import os
 
 from loguru import logger
 
+import planktoscope.focus
 import planktoscope.mqtt
-import planktoscope.stepper
+
 import planktoscope.light # Fan HAT LEDs
 import planktoscope.identity
+import planktoscope.pump
 import planktoscope.uuidName # Note: this is deprecated.
 import planktoscope.display # Fan HAT OLED screen
 from planktoscope.imagernew import mqtt as imagernew
@@ -87,10 +89,15 @@ if __name__ == "__main__":
     shutdown_event = multiprocessing.Event()
     shutdown_event.clear()
 
-    # Starts the stepper process for actuators
-    logger.info("Starting the stepper control process (step 2/5)")
-    stepper_thread = planktoscope.stepper.StepperProcess(shutdown_event)
-    stepper_thread.start()
+    # Starts the focus process for actuators
+    logger.info("Starting the focus control process (step 2/5)")
+    focus_thread = planktoscope.focus.FocusProcess(shutdown_event)
+    focus_thread.start()
+
+    # Starts the pump process for actuators
+    logger.info("Starting the focus control process (step 2/5)")
+    pump_thread = planktoscope.pump.PumpProcess(shutdown_event)
+    pump_thread.start()
 
     # TODO try to isolate the imager thread (or another thread)
     # Starts the imager control process
@@ -118,7 +125,7 @@ if __name__ == "__main__":
 
     logger.success("Looks like everything is set up and running, have fun!")
 
-    
+    #add the implemented code in the main branch 
     while run:
         # TODO look into ways of restarting the dead threads
         logger.trace("Running around in circles while waiting for someone to die!")
