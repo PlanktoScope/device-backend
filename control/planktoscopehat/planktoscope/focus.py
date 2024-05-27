@@ -209,9 +209,9 @@ class FocusProcess(multiprocessing.Process):
     def treat_command(self):
         command = ""
         logger.info("We received a new message")
-        last_message = self.actuator_client.msg["payload"]
+        last_message = self.actuator_client.msg["payload"]  # type: ignore
         logger.debug(last_message)
-        command = self.actuator_client.msg["topic"].split("/", 1)[1]
+        command = self.actuator_client.msg["topic"].split("/", 1)[1]  # type: ignore
         logger.debug(command)
         self.actuator_client.read_message()
 
@@ -321,6 +321,11 @@ if __name__ == "__main__":
     # TODO This should be a test suite for this library
     # Starts the stepper thread for actuators
     # This needs to be in a threading or multiprocessing wrapper
-    focus_thread = FocusProcess()
+    stop_event = multiprocessing.Event()
+    focus_thread = FocusProcess(event=stop_event)
     focus_thread.start()
-    focus_thread.join()
+    try:
+        focus_thread.join()
+    except KeyboardInterrupt:
+        stop_event.set()
+        focus_thread.join()

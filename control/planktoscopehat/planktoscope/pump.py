@@ -219,9 +219,9 @@ class PumpProcess(multiprocessing.Process):
     def treat_command(self):
         command = ""
         logger.info("We received a new message")
-        last_message = self.actuator_client.msg["payload"]
+        last_message = self.actuator_client.msg["payload"]  # type: ignore
         logger.debug(last_message)
-        command = self.actuator_client.msg["topic"].split("/", 1)[1]
+        command = self.actuator_client.msg["topic"].split("/", 1)[1]  # type: ignore
         logger.debug(command)
         self.actuator_client.read_message()
 
@@ -317,6 +317,11 @@ if __name__ == "__main__":
     # TODO This should be a test suite for this library
     # Starts the stepper thread for actuators
     # This needs to be in a threading or multiprocessing wrapper
-    pump_thread = PumpProcess()
+    stop_event = multiprocessing.Event()
+    pump_thread = PumpProcess(event=stop_event)
     pump_thread.start()
-    pump_thread.join()
+    try:
+        pump_thread.join()
+    except KeyboardInterrupt:
+        stop_event.set()
+        pump_thread.join()
