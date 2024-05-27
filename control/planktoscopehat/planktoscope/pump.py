@@ -160,10 +160,9 @@ class PumpProcess(multiprocessing.Process):
         # define the names for the 2 exsting steppers
         if reverse:
             self.pump_stepper = stepper(STEPPER2)
-            
+
         else:
             self.pump_stepper = stepper(STEPPER1)
-            
 
         # Set pump controller max speed
         self.pump_stepper.acceleration = 2000

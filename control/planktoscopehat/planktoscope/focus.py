@@ -1,4 +1,4 @@
-# Libraries to control the steppers for focusing 
+# Libraries to control the steppers for focusing
 import json
 import multiprocessing
 import os
@@ -137,7 +137,6 @@ class FocusProcess(multiprocessing.Process):
 
         self.stop_event = event
         self.focus_started = False
-        
 
         if os.path.exists("/home/pi/PlanktoScope/hardware.json"):
             # load hardware.json
@@ -158,10 +157,10 @@ class FocusProcess(multiprocessing.Process):
 
         # define the names for the 2 exsting steppers
         if reverse:
-            
+
             self.focus_stepper = stepper(STEPPER1, size=45)
         else:
-            
+
             self.focus_stepper = stepper(STEPPER2, size=45)
 
         # Set stepper controller max speed
@@ -216,7 +215,6 @@ class FocusProcess(multiprocessing.Process):
         logger.debug(command)
         self.actuator_client.read_message()
 
-    
         if command == "focus":
             self.__message_focus(last_message)
         elif command != "":
