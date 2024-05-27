@@ -142,13 +142,15 @@ if __name__ == "__main__":
     shutdown_event.set()
     time.sleep(1)
 
-    stepper_thread.join()
+    focus_thread.join()
+    pump_thread.join()
     if imager_thread:
         imager_thread.join()
     if light_thread:
         light_thread.join()
 
-    stepper_thread.close()
+    focus_thread.close()
+    pump_thread.close()
     if imager_thread:
         imager_thread.close()
     if light_thread:

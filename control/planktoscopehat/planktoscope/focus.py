@@ -309,7 +309,7 @@ class FocusProcess(multiprocessing.Process):
                     '{"status":"Done"}',
                 )
                 self.focus_started = False
-                self.stop_event.set()  # Signal pump to stop
+                self.focus_stepper.release()
             time.sleep(0.01)
         logger.info("Shutting down the stepper process")
         self.actuator_client.client.publish("status/focus", '{"status":"Dead"}')
