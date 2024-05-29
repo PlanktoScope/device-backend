@@ -3,8 +3,7 @@ import json
 import multiprocessing
 import os
 import time
-
-import RPi.GPIO  # type: ignore
+import typing
 
 # Logger library compatible with multiprocessing
 from loguru import logger
@@ -31,12 +30,13 @@ class stepper:
 
         Args:
             stepper (either STEPPER1 or STEPPER2): reference to the object that controls the stepper
-            size (int): maximum number of steps of this stepper (aka stage size). Can be 0 if not applicable
+            size (int): maximum number of steps of this stepper (aka stage size). Can be 0 if not
+              applicable
         """
         self.__stepper = shush.Motor(stepper)
         self.__size = size
         self.__goal = 0
-        self.__direction = ""
+        self.__direction: typing.Optional[int] = None
         self.__stepper.disable_motor()
 
     def at_goal(self):
@@ -128,7 +128,8 @@ class FocusProcess(multiprocessing.Process):
     focus_steps_per_mm = 40
     # 507 steps per ml for PlanktoScope standard
 
-    # focus max speed is in mm/sec and is limited by the maximum number of pulses per second the PlanktoScope can send
+    # focus max speed is in mm/sec and is limited by the maximum number of pulses per second the
+    # PlanktoScope can send
     focus_max_speed = 5
 
     def __init__(self, event):
@@ -288,8 +289,8 @@ class FocusProcess(multiprocessing.Process):
         # Creates the MQTT Client
         # We have to create it here, otherwise when the process running run is started
         # it doesn't see changes and calls made by self.actuator_client because this one
-        # only exist in the master process
-        # see https://stackoverflow.com/questions/17172878/using-pythons-multiprocessing-process-class
+        # only exist in the master process. See
+        # https://stackoverflow.com/questions/17172878/using-pythons-multiprocessing-process-class
         self.actuator_client = planktoscope.mqtt.MQTT_Client(
             topic="actuator/#", name="actuator_client"
         )
