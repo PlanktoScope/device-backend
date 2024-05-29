@@ -4,7 +4,7 @@ import multiprocessing
 import os
 import time
 
-import RPi.GPIO
+import RPi.GPIO  # type: ignore
 
 # Logger library compatible with multiprocessing
 from loguru import logger
