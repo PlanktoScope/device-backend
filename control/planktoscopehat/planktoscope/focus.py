@@ -8,8 +8,8 @@ import typing
 # Logger library compatible with multiprocessing
 from loguru import logger
 
-import planktoscope.mqtt
 import shush
+from planktoscope import mqtt
 
 logger.info("planktoscope.stepper is loaded")
 
@@ -291,9 +291,7 @@ class FocusProcess(multiprocessing.Process):
         # it doesn't see changes and calls made by self.actuator_client because this one
         # only exist in the master process. See
         # https://stackoverflow.com/questions/17172878/using-pythons-multiprocessing-process-class
-        self.actuator_client = planktoscope.mqtt.MQTT_Client(
-            topic="actuator/#", name="actuator_client"
-        )
+        self.actuator_client = mqtt.MQTT_Client(topic="actuator/#", name="actuator_client")
         # Publish the status "Ready" to via MQTT to Node-RED
         self.actuator_client.client.publish("status/focus", '{"status":"Ready"}')
 
