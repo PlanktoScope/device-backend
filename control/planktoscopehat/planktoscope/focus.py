@@ -1,3 +1,8 @@
+"""
+This module provides the functionality to control the focus mechanism
+of the Planktoscope.
+"""
+
 # Libraries to control the steppers for focusing
 import json
 import multiprocessing
@@ -5,7 +10,6 @@ import os
 import time
 import typing
 
-# Logger library compatible with multiprocessing
 from loguru import logger
 
 import shush
@@ -24,8 +28,12 @@ STEPPER1 = 0
 STEPPER2 = 1
 
 
-class stepper:
-    def __init__(self, stepper, size=0):
+class Stepper:
+    """
+    This class controls the stepper motor used for adjusting the focus.
+    """
+
+    def __init__(self, stepper, size):
         """Initialize the stepper class
 
         Args:
@@ -33,11 +41,10 @@ class stepper:
             size (int): maximum number of steps of this stepper (aka stage size). Can be 0 if not
               applicable
         """
-        self.__stepper = shush.Motor(stepper)
+        self.__stepper = shush.Motor(stepper).disable_motor()
         self.__size = size
         self.__goal = 0
         self.__direction: typing.Optional[int] = None
-        self.__stepper.disable_motor()
 
     def at_goal(self):
         """Is the motor at its goal
@@ -56,11 +63,12 @@ class stepper:
         return self.__stepper.get_velocity() != 0
 
     def go(self, direction, distance):
-        """move in the given direction for the given distance
+        """
+        Move in the given direction for the given distance.
 
         Args:
-          direction: gives the movement direction
-          distance:
+            direction (int): The movement direction (FORWARD or BACKWARD).
+            distance (int): The distance to move.
         """
         self.__direction = direction
         if self.__direction == FORWARD:
@@ -73,12 +81,17 @@ class stepper:
         self.__stepper.go_to(self.__goal)
 
     def shutdown(self):
-        """Shutdown everything ASAP"""
+        """
+        Shutdown everything ASAP.
+        """
         self.__stepper.stop_motor()
         self.__stepper.disable_motor()
         self.__goal = self.__stepper.get_position()
 
     def release(self):
+        """
+        Disable the stepper motor.
+        """
         self.__stepper.disable_motor()
 
     @property
@@ -133,6 +146,12 @@ class FocusProcess(multiprocessing.Process):
     focus_max_speed = 5
 
     def __init__(self, event):
+        """
+        Initialize the FocusProcess.
+
+        Args:
+            event (multiprocessing.Event): Event to signal the process to stop.
+        """
         super(FocusProcess, self).__init__()
         logger.info("Initialising the stepper process")
 
@@ -141,7 +160,7 @@ class FocusProcess(multiprocessing.Process):
 
         if os.path.exists("/home/pi/PlanktoScope/hardware.json"):
             # load hardware.json
-            with open("/home/pi/PlanktoScope/hardware.json", "r") as config_file:
+            with open("/home/pi/PlanktoScope/hardware.json", "r", encoding="utf-8") as config_file:
                 # TODO #100 insert guard for config_file empty
                 configuration = json.load(config_file)
                 logger.debug(f"Hardware configuration loaded is {configuration}")
@@ -159,10 +178,10 @@ class FocusProcess(multiprocessing.Process):
         # define the names for the 2 exsting steppers
         if reverse:
 
-            self.focus_stepper = stepper(STEPPER1, size=45)
+            self.focus_stepper = Stepper(STEPPER1, size=45)
         else:
 
-            self.focus_stepper = stepper(STEPPER2, size=45)
+            self.focus_stepper = Stepper(STEPPER2, size=45)
 
         # Set stepper controller max speed
 
@@ -173,6 +192,12 @@ class FocusProcess(multiprocessing.Process):
         logger.info("the focus stepper initialisation is over")
 
     def __message_focus(self, last_message):
+        """
+        Handle a focusing request.
+
+        Args:
+            last_message (dict): The last received message containing the focus action and parameters.
+        """
         logger.debug("We have received a focusing request")
         # If a new received command is "focus" but args contains "stop" we stop!
         if last_message["action"] == "stop":
@@ -208,6 +233,9 @@ class FocusProcess(multiprocessing.Process):
             logger.warning(f"The received message was not understood {last_message}")
 
     def treat_command(self):
+        """
+        Process a received command.
+        """
         command = ""
         logger.info("We received a new message")
         last_message = self.actuator_client.msg["payload"]  # type: ignore

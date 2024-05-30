@@ -1,3 +1,8 @@
+"""
+This module provides the functionality to control the pump mechanism
+of the Planktoscope.
+"""
+
 # Libraries to control the steppers for pumping
 import json
 import multiprocessing
@@ -5,7 +10,6 @@ import os
 import time
 import typing
 
-# Logger library compatible with multiprocessing
 from loguru import logger
 
 import shush
@@ -24,8 +28,12 @@ STEPPER1 = 0
 STEPPER2 = 1
 
 
-class stepper:
-    def __init__(self, stepper, size=0):
+class Stepper:
+    """
+    This class controls the stepper motor used for adjusting the pump.
+    """
+
+    def __init__(self, stepper):
         """Initialize the stepper class
 
         Args:
@@ -33,11 +41,9 @@ class stepper:
             size (int): maximum number of steps of this stepper (aka stage size). Can be 0 if not
               applicable
         """
-        self.__stepper = shush.Motor(stepper)
-        self.__size = size
+        self.__stepper = shush.Motor(stepper).disable_motor()
         self.__goal = 0
         self.__direction: typing.Optional[int] = None
-        self.__stepper.disable_motor()
 
     def at_goal(self):
         """Is the motor at its goal
@@ -56,11 +62,12 @@ class stepper:
         return self.__stepper.get_velocity() != 0
 
     def go(self, direction, distance):
-        """move in the given direction for the given distance
+        """
+        Move in the given direction for the given distance.
 
         Args:
-          direction: gives the movement direction
-          distance:
+            direction (int): The movement direction (FORWARD or BACKWARD).
+            distance (int): The distance to move.
         """
         self.__direction = direction
         if self.__direction == FORWARD:
@@ -73,7 +80,9 @@ class stepper:
         self.__stepper.go_to(self.__goal)
 
     def shutdown(self):
-        """Shutdown everything ASAP"""
+        """
+        Shutdown everything ASAP.
+        """
         self.__stepper.stop_motor()
         self.__stepper.disable_motor()
         self.__goal = self.__stepper.get_position()
@@ -133,6 +142,12 @@ class PumpProcess(multiprocessing.Process):
     pump_max_speed = 50
 
     def __init__(self, event):
+        """
+        Initialize the pump process.
+
+        Args:
+            event (multiprocessing.Event): Event to control the stopping of the process
+        """
         super(PumpProcess, self).__init__()
         logger.info("Initialising the stepper process")
 
@@ -141,7 +156,7 @@ class PumpProcess(multiprocessing.Process):
 
         if os.path.exists("/home/pi/PlanktoScope/hardware.json"):
             # load hardware.json
-            with open("/home/pi/PlanktoScope/hardware.json", "r") as config_file:
+            with open("/home/pi/PlanktoScope/hardware.json", "r", encoding="utf-8") as config_file:
                 # TODO #100 insert guard for config_file empty
                 configuration = json.load(config_file)
                 logger.debug(f"Hardware configuration loaded is {configuration}")
@@ -159,10 +174,10 @@ class PumpProcess(multiprocessing.Process):
 
         # define the names for the 2 exsting steppers
         if reverse:
-            self.pump_stepper = stepper(STEPPER2)
+            self.pump_stepper = Stepper(STEPPER2)
 
         else:
-            self.pump_stepper = stepper(STEPPER1)
+            self.pump_stepper = Stepper(STEPPER1)
 
         # Set pump controller max speed
         self.pump_stepper.acceleration = 2000
@@ -172,6 +187,12 @@ class PumpProcess(multiprocessing.Process):
         logger.info("Stepper initialisation is over")
 
     def __message_pump(self, last_message):
+        """
+        Handle pump commands from received messages.
+
+        Args:
+            last_message (dict): The last received message containing pump commands
+        """
         logger.debug("We have received a pumping command")
         if last_message["action"] == "stop":
             logger.debug("We have received a stop pump command")
@@ -217,6 +238,9 @@ class PumpProcess(multiprocessing.Process):
             logger.warning(f"The received message was not understood {last_message}")
 
     def treat_command(self):
+        """
+        Treat the received command.
+        """
         command = ""
         logger.info("We received a new message")
         last_message = self.actuator_client.msg["payload"]  # type: ignore
