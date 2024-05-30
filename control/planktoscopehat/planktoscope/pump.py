@@ -191,7 +191,7 @@ class PumpProcess(multiprocessing.Process):
         Handle pump commands from received messages.
 
         Args:
-            last_message (dict): The last received message containing pump commands
+            last_message (dict): The last received message containing pump commands.
         """
         logger.debug("We have received a pumping command")
         if last_message["action"] == "stop":

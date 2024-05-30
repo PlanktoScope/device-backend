@@ -196,7 +196,7 @@ class FocusProcess(multiprocessing.Process):
         Handle a focusing request.
 
         Args:
-            last_message (dict): The last received message containing the focus action and parameters.
+            last_message (dict): The last received message.
         """
         logger.debug("We have received a focusing request")
         # If a new received command is "focus" but args contains "stop" we stop!
