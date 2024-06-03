@@ -17,14 +17,9 @@ from planktoscope import mqtt
 
 logger.info("planktoscope.stepper is loaded")
 
-
-"""Step forward"""
 FORWARD = 1
-""""Step backward"""
 BACKWARD = 2
-"""Stepper controller 1"""
 STEPPER1 = 0
-""""Stepper controller 2"""
 STEPPER2 = 1
 
 
@@ -96,6 +91,10 @@ class Stepper:
 
     @property
     def speed(self):
+        """
+        Returns:
+            int: The maximum speed (ramp_VMAX) of the stepper motor.
+        """
         return self.__stepper.ramp_VMAX
 
     @speed.setter
@@ -110,6 +109,10 @@ class Stepper:
 
     @property
     def acceleration(self):
+        """
+        Returns:
+            int: The maximum acceleration (ramp_AMAX) of the stepper motor.
+        """
         return self.__stepper.ramp_AMAX
 
     @acceleration.setter
@@ -124,6 +127,10 @@ class Stepper:
 
     @property
     def deceleration(self):
+        """
+        Returns:
+            int: The maximum deceleration (ramp_DMAX) of the stepper motor.
+        """
         return self.__stepper.ramp_DMAX
 
     @deceleration.setter
@@ -138,8 +145,12 @@ class Stepper:
 
 
 class FocusProcess(multiprocessing.Process):
-    focus_steps_per_mm = 40
+    """
+    This class manages the focusing process using a stepper motor.
+    """
+
     # 507 steps per ml for PlanktoScope standard
+    focus_steps_per_mm = 40
 
     # focus max speed is in mm/sec and is limited by the maximum number of pulses per second the
     # PlanktoScope can send

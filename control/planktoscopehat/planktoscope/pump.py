@@ -17,14 +17,9 @@ from planktoscope import mqtt
 
 logger.info("planktoscope.stepper is loaded")
 
-
-"""Step forward"""
 FORWARD = 1
-""""Step backward"""
 BACKWARD = 2
-"""Stepper controller 1"""
 STEPPER1 = 0
-""""Stepper controller 2"""
 STEPPER2 = 1
 
 
@@ -134,6 +129,9 @@ class Stepper:
 
 
 class PumpProcess(multiprocessing.Process):
+    """
+    This class manages the pumping process using a stepper motor.
+    """
 
     # 5200 for custom NEMA14 pump with 0.8mm ID Tube
     pump_steps_per_ml = 507
