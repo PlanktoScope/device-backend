@@ -84,10 +84,17 @@ class Stepper:
         self.__goal = self.__stepper.get_position()
 
     def release(self):
+        """
+        Disable the stepper motor.
+        """
         self.__stepper.disable_motor()
 
     @property
     def speed(self):
+        """
+        Returns:
+            int: The maximum speed (ramp_VMAX) of the stepper motor.
+        """
         return self.__stepper.ramp_VMAX
 
     @speed.setter
@@ -102,6 +109,10 @@ class Stepper:
 
     @property
     def acceleration(self):
+        """
+        Returns:
+            int: The maximum acceleration (ramp_AMAX) of the stepper motor.
+        """
         return self.__stepper.ramp_AMAX
 
     @acceleration.setter
@@ -116,6 +127,10 @@ class Stepper:
 
     @property
     def deceleration(self):
+        """
+        Returns:
+            int: The maximum deceleration (ramp_DMAX) of the stepper motor.
+        """
         return self.__stepper.ramp_DMAX
 
     @deceleration.setter
