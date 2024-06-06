@@ -36,7 +36,8 @@ class Stepper:
             size (int): maximum number of steps of this stepper (aka stage size). Can be 0 if not
               applicable
         """
-        self.__stepper = shush.Motor(stepper).disable_motor()
+        self.__stepper = shush.Motor(stepper)
+        self.__stepper.disable_motor()
         self.__goal = 0
         self.__direction: typing.Optional[int] = None
 
