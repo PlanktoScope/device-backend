@@ -236,25 +236,32 @@ class PumpProcess(multiprocessing.Process):
             last_message (dict): The last message received.
         """
         loguru.logger.debug("We have received a move pump command")
-        if "direction" not in last_message or "volume" not in last_message or "flowrate" not in last_message:
+        if (
+            "direction" not in last_message
+            or "volume" not in last_message
+            or "flowrate" not in last_message
+        ):
             loguru.logger.error(f"The received message has the wrong argument {last_message}")
             if self.actuator_client:
-                self.actuator_client.client.publish("status/pump", '{"status":"Error, the message is missing an argument"}')
+                self.actuator_client.client.publish(
+                    "status/pump", '{"status":"Error, the message is missing an argument"}'
+                )
             return
 
         direction = last_message["direction"]
         volume = float(last_message["volume"])
         flowrate = float(last_message["flowrate"])
 
-        if flowrate == 0:
+        if (flowrate := float(last_message["flowrate"])) == 0 :
             loguru.logger.error("The flowrate should not be == 0")
             if self.actuator_client:
-                self.actuator_client.client.publish("status/pump", '{"status":"Error, The flowrate should not be == 0"}')
+                self.actuator_client.client.publish(
+                    "status/pump", '{"status":"Error, The flowrate should not be == 0"}'
+                )
             return
 
         loguru.logger.info("The pump is started.")
         self.pump(direction, volume, flowrate)
-
 
     def treat_command(self):
         """
@@ -275,7 +282,8 @@ class PumpProcess(multiprocessing.Process):
             self.__message_pump(last_message)
         elif command != "":
             loguru.logger.warning(
-                f"We did not understand the received request {command} - {last_message}")
+                f"We did not understand the received request {command} - {last_message}"
+            )
 
     def pump(self, direction, volume, speed=pump_max_speed):
         """Moves the pump stepper
