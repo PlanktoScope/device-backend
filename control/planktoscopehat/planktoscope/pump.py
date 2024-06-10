@@ -232,24 +232,28 @@ class PumpProcess(multiprocessing.Process):
                         '{"status":"Error, the message is missing an argument"}',
                     )
                 return
-            else:
-                direction = last_message["direction"]
-                volume = float(last_message["volume"])
-                if (flowrate := float(last_message["flowrate"])) == 0:
-                    loguru.logger.error("The flowrate should not be == 0")
-                    if self.actuator_client:
-                        self.actuator_client.client.publish(
-                            "status/pump", '{"status":"Error, The flowrate should not be == 0"}'
-                        )
-                    return
 
-                loguru.logger.info("The pump is started.")
-                self.pump(direction, volume, flowrate)
+            direction = last_message["direction"]
+            volume = float(last_message["volume"])
+            if (flowrate := float(last_message["flowrate"])) == 0:
+                loguru.logger.error("The flowrate should not be == 0")
+                if self.actuator_client:
+                    self.actuator_client.client.publish(
+                        "status/pump", '{"status":"Error, The flowrate should not be == 0"}'
+                    )
+                return
+
+            loguru.logger.info("The pump is started.")
+            self.pump(direction, volume, flowrate)
+
         else:
             loguru.logger.warning(f"The received message was not understood {last_message}")
 
 
     def treat_command(self):
+        """
+        Treat the received command.
+        """
         loguru.logger.info("We received a new message")
         if not self.actuator_client:
             loguru.logger.error("Actuator client is not initialized")
