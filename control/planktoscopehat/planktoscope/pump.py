@@ -252,7 +252,7 @@ class PumpProcess(multiprocessing.Process):
         volume = float(last_message["volume"])
         flowrate = float(last_message["flowrate"])
 
-        if (flowrate := float(last_message["flowrate"])) == 0:
+        if (flowrate := float(last_message["flowrate"])) == 0 :
             loguru.logger.error("The flowrate should not be == 0")
             if self.actuator_client:
                 self.actuator_client.client.publish(

@@ -323,16 +323,10 @@ class FocusProcess(multiprocessing.Process):
 
     @loguru.logger.catch
     def run(self):
-        """This is the function that needs to be started to create a thread"""
         loguru.logger.info(f"The stepper control process has been started in process {os.getpid()}")
 
         # Creates the MQTT Client
-        # We have to create it here, otherwise when the process running run is started
-        # it doesn't see changes and calls made by self.actuator_client because this one
-        # only exist in the master process. See
-        # https://stackoverflow.com/questions/17172878/using-pythons-multiprocessing-process-class
         self.actuator_client = mqtt.MQTT_Client(topic="actuator/#", name="actuator_client")
-        # Publish the status "Ready" to via MQTT to Node-RED
         self.actuator_client.client.publish("status/focus", '{"status":"Ready"}')
 
         loguru.logger.success("Stepper is READY!")
@@ -348,11 +342,16 @@ class FocusProcess(multiprocessing.Process):
                 self.focus_started = False
                 self.focus_stepper.release()
             time.sleep(0.01)
+
         loguru.logger.info("Shutting down the stepper process")
-        self.actuator_client.client.publish("status/focus", '{"status":"Dead"}')
+        if self.actuator_client:
+            self.actuator_client.client.publish("status/focus", '{"status":"Dead"}')
         self.focus_stepper.shutdown()
-        self.actuator_client.shutdown()
+
+        if self.actuator_client:
+            self.actuator_client.shutdown()
         loguru.logger.success("Stepper process shut down! See you!")
+
 
 
 # This is called if this script is launched directly
