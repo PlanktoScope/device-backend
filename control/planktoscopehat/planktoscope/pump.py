@@ -241,23 +241,24 @@ class PumpProcess(multiprocessing.Process):
         else:
             loguru_logger.warning(f"The received message was not understood {last_message}")
 
-def treat_command(self):
-    loguru_logger.info("We received a new message")
-    if not self.actuator_client:
-        loguru_logger.error("Actuator client is not initialized")
-        return
+    def treat_command(self):
+        loguru_logger.info("We received a new message")
+        if not self.actuator_client:
+            loguru_logger.error("Actuator client is not initialized")
+            return
 
-    last_message = self.actuator_client.msg["payload"]  # type: ignore
-    loguru_logger.debug(last_message)
-    command = self.actuator_client.msg["topic"].split("/", 1)[1]  # type: ignore
-    loguru_logger.debug(command)
-    self.actuator_client.read_message()
+        last_message = self.actuator_client.msg["payload"]  
+        loguru_logger.debug(last_message)
+        command = self.actuator_client.msg["topic"].split("/", 1)[1]  
+        loguru_logger.debug(command)
+        self.actuator_client.read_message()
 
-    if command == "pump":
-        self.__message_pump(last_message)
-    elif command != "":
-        loguru_logger.warning(f"We did not understand the received request {command} - {last_message}")
-
+        if command == "pump":
+            self.__message_pump(last_message)
+        elif command != "":
+            loguru_logger.warning(
+                f"We did not understand the received request {command} - {last_message}"
+            )
 
     def pump(self, direction, volume, speed=pump_max_speed):
         """Moves the pump stepper
@@ -270,31 +271,26 @@ def treat_command(self):
 
         loguru_logger.info(f"The pump will move {direction} for {volume}mL at {speed}mL/min")
 
-        # Validation of inputs
         if direction not in ["FORWARD", "BACKWARD"]:
             loguru_logger.error("The direction command is not recognised")
             loguru_logger.error("It should be either FORWARD or BACKWARD")
             return
 
-        # TMC5160 is configured for 256 microsteps
         nb_steps = round(self.pump_steps_per_ml * volume * 256, 0)
         loguru_logger.debug(f"The number of microsteps that will be applied is {nb_steps}")
         if speed > self.pump_max_speed:
             speed = self.pump_max_speed
-            loguru_logger.warning(
-                f"Pump speed has been clamped to a maximum safe speed of {speed}mL/min"
-            )
+            loguru_logger.warning(f"Pump speed has been clamped to a maximum safe speed of {speed}mL/min")
         steps_per_second = speed * self.pump_steps_per_ml * 256 / 60
         loguru_logger.debug(f"There will be a speed of {steps_per_second} steps per second")
         self.pump_stepper.speed = int(steps_per_second)
 
-        # Publish the status "Started" to via MQTT to Node-RED
-        self.actuator_client.client.publish(
-            "status/pump",
-            f'{{"status":"Started", "duration":{nb_steps / steps_per_second}}}',
-        )
+        if self.actuator_client:
+            self.actuator_client.client.publish(
+                "status/pump",
+                f'{{"status":"Started", "duration":{nb_steps / steps_per_second}}}',
+            )
 
-        # Depending on direction, select the right direction for the pump
         if direction == "FORWARD":
             self.pump_started = True
             self.pump_stepper.go(FORWARD, nb_steps)
@@ -304,6 +300,7 @@ def treat_command(self):
             self.pump_started = True
             self.pump_stepper.go(BACKWARD, nb_steps)
             return
+
 
     @loguru_logger.catch
     def run(self):
