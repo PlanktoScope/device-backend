@@ -202,22 +202,14 @@ class PumpProcess(multiprocessing.Process):
         loguru_logger.info("Stepper initialisation is over")
 
     def __message_pump(self, last_message):
-        """
-        Handle pump commands from received messages.
-
-        Args:
-            last_message (dict): The last received message containing pump commands.
-        """
-        logger.debug("We have received a pumping command")
+        loguru_logger.debug("We have received a pumping command")
         if last_message["action"] == "stop":
             loguru_logger.debug("We have received a stop pump command")
             self.pump_stepper.shutdown()
 
-            # Print status
             loguru_logger.info("The pump has been interrupted")
-
-            # Publish the status "Interrupted" to via MQTT to Node-RED
-            self.actuator_client.client.publish("status/pump", '{"status":"Interrupted"}')
+            if self.actuator_client:
+                self.actuator_client.client.publish("status/pump", '{"status":"Interrupted"}')
 
         elif last_message["action"] == "move":
             loguru_logger.debug("We have received a move pump command")
@@ -228,48 +220,44 @@ class PumpProcess(multiprocessing.Process):
                 or "flowrate" not in last_message
             ):
                 loguru_logger.error(f"The received message has the wrong argument {last_message}")
-                self.actuator_client.client.publish(
-                    "status/pump",
-                    '{"status":"Error, the message is missing an argument"}',
-                )
+                if self.actuator_client:
+                    self.actuator_client.client.publish(
+                        "status/pump",
+                        '{"status":"Error, the message is missing an argument"}',
+                    )
                 return
-            # Get direction from the different received arguments
             direction = last_message["direction"]
-            # Get delay (in between steps) from the different received arguments
             volume = float(last_message["volume"])
-            # Get number of steps from the different received arguments
-            flowrate = float(last_message["flowrate"])
             if (flowrate := float(last_message["flowrate"])) == 0:
                 loguru_logger.error("The flowrate should not be == 0")
-                self.actuator_client.client.publish(
-                    "status/pump", '{"status":"Error, The flowrate should not be == 0"}'
-                )
+                if self.actuator_client:
+                    self.actuator_client.client.publish(
+                        "status/pump", '{"status":"Error, The flowrate should not be == 0"}'
+                    )
                 return
 
-            # Print status
             loguru_logger.info("The pump is started.")
             self.pump(direction, volume, flowrate)
         else:
             loguru_logger.warning(f"The received message was not understood {last_message}")
 
-    def treat_command(self):
-        """
-        Treat the received command.
-        """
-        command = ""
-        loguru_logger.info("We received a new message")
-        last_message = self.actuator_client.msg["payload"]  # type: ignore
-        loguru_logger.debug(last_message)
-        command = self.actuator_client.msg["topic"].split("/", 1)[1]  # type: ignore
-        loguru_logger.debug(command)
-        self.actuator_client.read_message()
+def treat_command(self):
+    loguru_logger.info("We received a new message")
+    if not self.actuator_client:
+        loguru_logger.error("Actuator client is not initialized")
+        return
 
-        if command == "pump":
-            self.__message_pump(last_message)
-        elif command != "":
-            loguru_logger.warning(
-                f"We did not understand the received request {command} - {last_message}"
-            )
+    last_message = self.actuator_client.msg["payload"]  # type: ignore
+    loguru_logger.debug(last_message)
+    command = self.actuator_client.msg["topic"].split("/", 1)[1]  # type: ignore
+    loguru_logger.debug(command)
+    self.actuator_client.read_message()
+
+    if command == "pump":
+        self.__message_pump(last_message)
+    elif command != "":
+        loguru_logger.warning(f"We did not understand the received request {command} - {last_message}")
+
 
     def pump(self, direction, volume, speed=pump_max_speed):
         """Moves the pump stepper
@@ -317,19 +305,16 @@ class PumpProcess(multiprocessing.Process):
             self.pump_stepper.go(BACKWARD, nb_steps)
             return
 
-    @logger.catch
+    @loguru_logger.catch
     def run(self):
-        """This is the function that needs to be started to create a thread"""
         loguru_logger.info(f"The stepper control process has been started in process {os.getpid()}")
 
-        # Creates the MQTT Client
         self.actuator_client = mqtt.MQTT_Client(topic="actuator/#", name="actuator_client")
-        # Publish the status "Ready" to via MQTT to Node-RED
         self.actuator_client.client.publish("status/pump", '{"status":"Ready"}')
 
         loguru_logger.success("The pump is READY!")
         while not self.stop_event.is_set():
-            if self.actuator_client.new_message_received():
+            if self.actuator_client and self.actuator_client.new_message_received():
                 self.treat_command()
             if self.pump_started and self.pump_stepper.at_goal():
                 loguru_logger.success("The pump movement is over!")
@@ -342,10 +327,12 @@ class PumpProcess(multiprocessing.Process):
 
             time.sleep(0.01)
         loguru_logger.info("Shutting down the stepper process")
-        self.actuator_client.client.publish("status/pump", '{"status":"Dead"}')
+        if self.actuator_client:
+            self.actuator_client.client.publish("status/pump", '{"status":"Dead"}')
         self.pump_stepper.shutdown()
 
-        self.actuator_client.shutdown()
+        if self.actuator_client:
+            self.actuator_client.shutdown()
         loguru_logger.success("Stepper process shut down! See you!")
 
 
