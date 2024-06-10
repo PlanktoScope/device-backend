@@ -256,26 +256,26 @@ class PumpProcess(multiprocessing.Process):
         self.pump(direction, volume, flowrate)
 
 
-        def treat_command(self):
-            """
-            Treat the received command.
-            """
-            loguru.logger.info("We received a new message")
-            if not self.actuator_client:
-                loguru.logger.error("Actuator client is not initialized")
-                return
+    def treat_command(self):
+        """
+        Treat the received command.
+        """
+        loguru.logger.info("We received a new message")
+        if not self.actuator_client:
+            loguru.logger.error("Actuator client is not initialized")
+            return
 
-            last_message = self.actuator_client.msg["payload"]
-            loguru.logger.debug(last_message)
-            command = self.actuator_client.msg["topic"].split("/", 1)[1]
-            loguru.logger.debug(command)
-            self.actuator_client.read_message()
+        last_message = self.actuator_client.msg["payload"]
+        loguru.logger.debug(last_message)
+        command = self.actuator_client.msg["topic"].split("/", 1)[1]
+        loguru.logger.debug(command)
+        self.actuator_client.read_message()
 
-            if command == "pump":
-                self.__message_pump(last_message)
-            elif command != "":
-                loguru.logger.warning(
-                    f"We did not understand the received request {command} - {last_message}")
+        if command == "pump":
+            self.__message_pump(last_message)
+        elif command != "":
+            loguru.logger.warning(
+                f"We did not understand the received request {command} - {last_message}")
 
     def pump(self, direction, volume, speed=pump_max_speed):
         """Moves the pump stepper
