@@ -10,12 +10,12 @@ import os
 import time
 import typing
 
-from loguru import logger as loguru_logger
+import loguru 
 
 import shush
 from planktoscope import mqtt
 
-loguru_logger.info("planktoscope.stepper is loaded")
+loguru.logger.info("planktoscope.stepper is loaded")
 
 FORWARD = 1
 BACKWARD = 2
@@ -71,7 +71,7 @@ class Stepper:
         elif self.__direction == BACKWARD:
             self.__goal = int(self.__stepper.get_position() - distance)
         else:
-            loguru_logger.error(f"The given direction is wrong {direction}")
+            loguru.logger.error(f"The given direction is wrong {direction}")
         self.__stepper.enable_motor()
         self.__stepper.go_to(self.__goal)
 
@@ -104,7 +104,7 @@ class Stepper:
         Args:
             speed (int): speed of the movement by the stepper, in microsteps unit/s
         """
-        loguru_logger.debug(f"Setting stepper speed to {speed}")
+        loguru.logger.debug(f"Setting stepper speed to {speed}")
         self.__stepper.ramp_VMAX = int(speed)
 
     @property
@@ -122,7 +122,7 @@ class Stepper:
         Args:
             acceleration (int): acceleration reachable by the stepper, in microsteps unit/s²
         """
-        loguru_logger.debug(f"Setting stepper acceleration to {acceleration}")
+        loguru.logger.debug(f"Setting stepper acceleration to {acceleration}")
         self.__stepper.ramp_AMAX = int(acceleration)
 
     @property
@@ -140,7 +140,7 @@ class Stepper:
         Args:
             deceleration (int): deceleration reachable by the stepper, in microsteps unit/s²
         """
-        loguru_logger.debug(f"Setting stepper deceleration to {deceleration}")
+        loguru.logger.debug(f"Setting stepper deceleration to {deceleration}")
         self.__stepper.ramp_DMAX = int(deceleration)
 
 
@@ -163,7 +163,7 @@ class PumpProcess(multiprocessing.Process):
             event (multiprocessing.Event): Event to control the stopping of the process
         """
         super().__init__()
-        loguru_logger.info("Initialising the stepper process")
+        loguru.logger.info("Initialising the stepper process")
 
         self.stop_event = event
         self.pump_started = False
@@ -174,9 +174,9 @@ class PumpProcess(multiprocessing.Process):
             with open("/home/pi/PlanktoScope/hardware.json", "r", encoding="utf-8") as config_file:
                 # TODO #100 insert guard for config_file empty
                 configuration = json.load(config_file)
-                loguru_logger.debug(f"Hardware configuration loaded is {configuration}")
+                loguru.logger.debug(f"Hardware configuration loaded is {configuration}")
         else:
-            loguru_logger.info("The hardware configuration file doesn't exists, using defaults")
+            loguru.logger.info("The hardware configuration file doesn't exists, using defaults")
             configuration = {}
 
         reverse = False
@@ -199,27 +199,27 @@ class PumpProcess(multiprocessing.Process):
         self.pump_stepper.deceleration = self.pump_stepper.acceleration
         self.pump_stepper.speed = self.pump_max_speed * self.pump_steps_per_ml * 256 / 60
 
-        loguru_logger.info("Stepper initialisation is over")
+        loguru.logger.info("Stepper initialisation is over")
 
     def __message_pump(self, last_message):
-        loguru_logger.debug("We have received a pumping command")
+        loguru.logger.debug("We have received a pumping command")
         if last_message["action"] == "stop":
-            loguru_logger.debug("We have received a stop pump command")
+            loguru.logger.debug("We have received a stop pump command")
             self.pump_stepper.shutdown()
 
-            loguru_logger.info("The pump has been interrupted")
+            loguru.logger.info("The pump has been interrupted")
             if self.actuator_client:
                 self.actuator_client.client.publish("status/pump", '{"status":"Interrupted"}')
 
         elif last_message["action"] == "move":
-            loguru_logger.debug("We have received a move pump command")
+            loguru.logger.debug("We have received a move pump command")
 
             if (
                 "direction" not in last_message
                 or "volume" not in last_message
                 or "flowrate" not in last_message
             ):
-                loguru_logger.error(f"The received message has the wrong argument {last_message}")
+                loguru.logger.error(f"The received message has the wrong argument {last_message}")
                 if self.actuator_client:
                     self.actuator_client.client.publish(
                         "status/pump",
@@ -229,34 +229,34 @@ class PumpProcess(multiprocessing.Process):
             direction = last_message["direction"]
             volume = float(last_message["volume"])
             if (flowrate := float(last_message["flowrate"])) == 0:
-                loguru_logger.error("The flowrate should not be == 0")
+                loguru.logger.error("The flowrate should not be == 0")
                 if self.actuator_client:
                     self.actuator_client.client.publish(
                         "status/pump", '{"status":"Error, The flowrate should not be == 0"}'
                     )
                 return
 
-            loguru_logger.info("The pump is started.")
+            loguru.logger.info("The pump is started.")
             self.pump(direction, volume, flowrate)
         else:
-            loguru_logger.warning(f"The received message was not understood {last_message}")
+            loguru.logger.warning(f"The received message was not understood {last_message}")
 
     def treat_command(self):
-        loguru_logger.info("We received a new message")
+        loguru.logger.info("We received a new message")
         if not self.actuator_client:
-            loguru_logger.error("Actuator client is not initialized")
+            loguru.logger.error("Actuator client is not initialized")
             return
 
-        last_message = self.actuator_client.msg["payload"]  
-        loguru_logger.debug(last_message)
-        command = self.actuator_client.msg["topic"].split("/", 1)[1]  
-        loguru_logger.debug(command)
+        last_message = self.actuator_client.msg["payload"]
+        loguru.logger.debug(last_message)
+        command = self.actuator_client.msg["topic"].split("/", 1)[1]
+        loguru.logger.debug(command)
         self.actuator_client.read_message()
 
         if command == "pump":
             self.__message_pump(last_message)
         elif command != "":
-            loguru_logger.warning(
+            loguru.logger.warning(
                 f"We did not understand the received request {command} - {last_message}"
             )
 
@@ -269,20 +269,22 @@ class PumpProcess(multiprocessing.Process):
             speed (int, optional): speed of pumping, in mL/min. Defaults to pump_max_speed.
         """
 
-        loguru_logger.info(f"The pump will move {direction} for {volume}mL at {speed}mL/min")
+        loguru.logger.info(f"The pump will move {direction} for {volume}mL at {speed}mL/min")
 
         if direction not in ["FORWARD", "BACKWARD"]:
-            loguru_logger.error("The direction command is not recognised")
-            loguru_logger.error("It should be either FORWARD or BACKWARD")
+            loguru.logger.error("The direction command is not recognised")
+            loguru.logger.error("It should be either FORWARD or BACKWARD")
             return
 
         nb_steps = round(self.pump_steps_per_ml * volume * 256, 0)
-        loguru_logger.debug(f"The number of microsteps that will be applied is {nb_steps}")
+        loguru.logger.debug(f"The number of microsteps that will be applied is {nb_steps}")
         if speed > self.pump_max_speed:
             speed = self.pump_max_speed
-            loguru_logger.warning(f"Pump speed has been clamped to a maximum safe speed of {speed}mL/min")
+            loguru.logger.warning(
+                f"Pump speed has been clamped to a maximum safe speed of {speed}mL/min"
+            )
         steps_per_second = speed * self.pump_steps_per_ml * 256 / 60
-        loguru_logger.debug(f"There will be a speed of {steps_per_second} steps per second")
+        loguru.logger.debug(f"There will be a speed of {steps_per_second} steps per second")
         self.pump_stepper.speed = int(steps_per_second)
 
         if self.actuator_client:
@@ -301,20 +303,19 @@ class PumpProcess(multiprocessing.Process):
             self.pump_stepper.go(BACKWARD, nb_steps)
             return
 
-
-    @loguru_logger.catch
+    @loguru.logger.catch
     def run(self):
-        loguru_logger.info(f"The stepper control process has been started in process {os.getpid()}")
+        loguru.logger.info(f"The stepper control process has been started in process {os.getpid()}")
 
         self.actuator_client = mqtt.MQTT_Client(topic="actuator/#", name="actuator_client")
         self.actuator_client.client.publish("status/pump", '{"status":"Ready"}')
 
-        loguru_logger.success("The pump is READY!")
+        loguru.logger.success("The pump is READY!")
         while not self.stop_event.is_set():
             if self.actuator_client and self.actuator_client.new_message_received():
                 self.treat_command()
             if self.pump_started and self.pump_stepper.at_goal():
-                loguru_logger.success("The pump movement is over!")
+                loguru.logger.success("The pump movement is over!")
                 self.actuator_client.client.publish(
                     "status/pump",
                     '{"status":"Done"}',
@@ -323,14 +324,14 @@ class PumpProcess(multiprocessing.Process):
                 self.pump_stepper.release()
 
             time.sleep(0.01)
-        loguru_logger.info("Shutting down the stepper process")
+        loguru.logger.info("Shutting down the stepper process")
         if self.actuator_client:
             self.actuator_client.client.publish("status/pump", '{"status":"Dead"}')
         self.pump_stepper.shutdown()
 
         if self.actuator_client:
             self.actuator_client.shutdown()
-        loguru_logger.success("Stepper process shut down! See you!")
+        loguru.logger.success("Stepper process shut down! See you!")
 
 
 # This is called if this script is launched directly
