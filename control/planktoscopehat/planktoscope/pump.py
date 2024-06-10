@@ -203,74 +203,79 @@ class PumpProcess(multiprocessing.Process):
 
     def __message_pump(self, last_message):
         """
-        Handle pump commands from received messages.
+        Handle the pump message received from the actuator client.
 
         Args:
-            last_message (dict): The last received message containing pump commands.
+            last_message (dict): The last message received.
         """
         loguru.logger.debug("We have received a pumping command")
-        if last_message["action"] == "stop":
-            loguru.logger.debug("We have received a stop pump command")
-            self.pump_stepper.shutdown()
+        action = last_message.get("action")
 
-            loguru.logger.info("The pump has been interrupted")
-            if self.actuator_client:
-                self.actuator_client.client.publish("status/pump", '{"status":"Interrupted"}')
-
-        elif last_message["action"] == "move":
-            loguru.logger.debug("We have received a move pump command")
-
-            if (
-                "direction" not in last_message
-                or "volume" not in last_message
-                or "flowrate" not in last_message
-            ):
-                loguru.logger.error(f"The received message has the wrong argument {last_message}")
-                if self.actuator_client:
-                    self.actuator_client.client.publish(
-                        "status/pump",
-                        '{"status":"Error, the message is missing an argument"}',
-                    )
-                return
-
-            direction = last_message["direction"]
-            volume = float(last_message["volume"])
-            if (flowrate := float(last_message["flowrate"])) == 0:
-                loguru.logger.error("The flowrate should not be == 0")
-                if self.actuator_client:
-                    self.actuator_client.client.publish(
-                        "status/pump", '{"status":"Error, The flowrate should not be == 0"}'
-                    )
-                return
-
-            loguru.logger.info("The pump is started.")
-            self.pump(direction, volume, flowrate)
-
+        if action == "stop":
+            self._handle_stop_action()
+        elif action == "move":
+            self._handle_move_action(last_message)
         else:
             loguru.logger.warning(f"The received message was not understood {last_message}")
 
+    def _handle_stop_action(self):
+        """
+        Handle the 'stop' action for the pump.
+        """
+        loguru.logger.debug("We have received a stop pump command")
+        self.pump_stepper.shutdown()
+        loguru.logger.info("The pump has been interrupted")
+        if self.actuator_client:
+            self.actuator_client.client.publish("status/pump", '{"status":"Interrupted"}')
 
-    def treat_command(self):
+    def _handle_move_action(self, last_message):
         """
-        Treat the received command.
+        Handle the 'move' action for the pump.
+
+        Args:
+            last_message (dict): The last message received.
         """
-        loguru.logger.info("We received a new message")
-        if not self.actuator_client:
-            loguru.logger.error("Actuator client is not initialized")
+        loguru.logger.debug("We have received a move pump command")
+        if "direction" not in last_message or "volume" not in last_message or "flowrate" not in last_message:
+            loguru.logger.error(f"The received message has the wrong argument {last_message}")
+            if self.actuator_client:
+                self.actuator_client.client.publish("status/pump", '{"status":"Error, the message is missing an argument"}')
             return
 
-        last_message = self.actuator_client.msg["payload"]
-        loguru.logger.debug(last_message)
-        command = self.actuator_client.msg["topic"].split("/", 1)[1]
-        loguru.logger.debug(command)
-        self.actuator_client.read_message()
+        direction = last_message["direction"]
+        volume = float(last_message["volume"])
+        flowrate = float(last_message["flowrate"])
 
-        if command == "pump":
-            self.__message_pump(last_message)
-        elif command != "":
-            loguru.logger.warning(
-                f"We did not understand the received request {command} - {last_message}"
-            )
+        if flowrate == 0:
+            loguru.logger.error("The flowrate should not be == 0")
+            if self.actuator_client:
+                self.actuator_client.client.publish("status/pump", '{"status":"Error, The flowrate should not be == 0"}')
+            return
+
+        loguru.logger.info("The pump is started.")
+        self.pump(direction, volume, flowrate)
+
+
+        def treat_command(self):
+            """
+            Treat the received command.
+            """
+            loguru.logger.info("We received a new message")
+            if not self.actuator_client:
+                loguru.logger.error("Actuator client is not initialized")
+                return
+
+            last_message = self.actuator_client.msg["payload"]
+            loguru.logger.debug(last_message)
+            command = self.actuator_client.msg["topic"].split("/", 1)[1]
+            loguru.logger.debug(command)
+            self.actuator_client.read_message()
+
+            if command == "pump":
+                self.__message_pump(last_message)
+            elif command != "":
+                loguru.logger.warning(
+                    f"We did not understand the received request {command} - {last_message}")
 
     def pump(self, direction, volume, speed=pump_max_speed):
         """Moves the pump stepper
