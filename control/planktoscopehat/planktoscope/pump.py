@@ -10,7 +10,7 @@ import os
 import time
 import typing
 
-import loguru 
+import loguru
 
 import shush
 from planktoscope import mqtt
@@ -202,6 +202,12 @@ class PumpProcess(multiprocessing.Process):
         loguru.logger.info("Stepper initialisation is over")
 
     def __message_pump(self, last_message):
+        """
+        Handle pump commands from received messages.
+
+        Args:
+            last_message (dict): The last received message containing pump commands.
+        """
         loguru.logger.debug("We have received a pumping command")
         if last_message["action"] == "stop":
             loguru.logger.debug("We have received a stop pump command")
@@ -226,20 +232,22 @@ class PumpProcess(multiprocessing.Process):
                         '{"status":"Error, the message is missing an argument"}',
                     )
                 return
-            direction = last_message["direction"]
-            volume = float(last_message["volume"])
-            if (flowrate := float(last_message["flowrate"])) == 0:
-                loguru.logger.error("The flowrate should not be == 0")
-                if self.actuator_client:
-                    self.actuator_client.client.publish(
-                        "status/pump", '{"status":"Error, The flowrate should not be == 0"}'
-                    )
-                return
+            else:
+                direction = last_message["direction"]
+                volume = float(last_message["volume"])
+                if (flowrate := float(last_message["flowrate"])) == 0:
+                    loguru.logger.error("The flowrate should not be == 0")
+                    if self.actuator_client:
+                        self.actuator_client.client.publish(
+                            "status/pump", '{"status":"Error, The flowrate should not be == 0"}'
+                        )
+                    return
 
-            loguru.logger.info("The pump is started.")
-            self.pump(direction, volume, flowrate)
+                loguru.logger.info("The pump is started.")
+                self.pump(direction, volume, flowrate)
         else:
             loguru.logger.warning(f"The received message was not understood {last_message}")
+
 
     def treat_command(self):
         loguru.logger.info("We received a new message")
