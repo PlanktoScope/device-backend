@@ -28,7 +28,7 @@ class Stepper:
     This class controls the stepper motor used for adjusting the focus.
     """
 
-    def __init__(self, stepper, size):
+    def __init__(self, stepper, size): # pylint: disable=unused-argument
         """Initialize the stepper class
 
         Args:
@@ -227,26 +227,28 @@ class FocusProcess(multiprocessing.Process):
 
         elif last_message["action"] == "move":
             loguru.logger.debug("We have received a move focus command")
+            self.__handle_move_action(last_message)
 
-            if "direction" not in last_message or "distance" not in last_message:
-                loguru.logger.error(f"The received message has the wrong argument {last_message}")
-                if self.actuator_client:
-                    self.actuator_client.client.publish("status/focus", '{"status":"Error"}')
-            # Get direction from the different received arguments
-            direction = last_message["direction"]
-            # Get number of steps from the different received arguments
-            distance = float(last_message["distance"])
-
-            speed = float(last_message["speed"]) if "speed" in last_message else 0
-
-            # Print status
-            loguru.logger.info("The focus movement is started.")
-            if speed:
-                self.focus(direction, distance, speed)
-            else:
-                self.focus(direction, distance)
         else:
             loguru.logger.warning(f"The received message was not understood {last_message}")
+
+    def __handle_move_action(self, last_message):
+        if "direction" not in last_message or "distance" not in last_message:
+            loguru.logger.error(f"The received message has the wrong argument {last_message}")
+            if self.actuator_client:
+                self.actuator_client.client.publish("status/focus", '{"status":"Error"}')
+            return
+
+        direction = last_message["direction"]
+        distance = float(last_message["distance"])
+        speed = float(last_message["speed"]) if "speed" in last_message else 0
+
+        loguru.logger.info("The focus movement is started.")
+        if speed:
+            self.focus(direction, distance, speed)
+        else:
+            self.focus(direction, distance)
+
 
     def treat_command(self):
         """
