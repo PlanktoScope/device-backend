@@ -28,8 +28,9 @@ class Stepper:
     This class controls the stepper motor used for adjusting the focus.
     """
 
-    def __init__(self, stepper, size): # pylint: disable=unused-argument
-        """Initialize the stepper class
+    def __init__(self, stepper, size):  # pylint: disable=unused-argument
+        """
+        Initialize the stepper class
 
         Args:
             stepper (either STEPPER1 or STEPPER2): reference to the object that controls the stepper
@@ -248,7 +249,6 @@ class FocusProcess(multiprocessing.Process):
             self.focus(direction, distance, speed)
         else:
             self.focus(direction, distance)
-
 
     def treat_command(self):
         """
