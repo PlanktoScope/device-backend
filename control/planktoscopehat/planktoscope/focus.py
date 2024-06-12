@@ -168,7 +168,9 @@ class FocusProcess(multiprocessing.Process):
 
         self.stop_event = event
         self.focus_started = False
-        self.actuator_client: typing.Optional[mqtt.MQTT_Client] = None  # Initialize actuator_client to None
+        self.actuator_client: typing.Optional[mqtt.MQTT_Client] = (
+            None  # Initialize actuator_client to None
+        )
 
         if os.path.exists("/home/pi/PlanktoScope/hardware.json"):
             # load hardware.json
@@ -309,10 +311,11 @@ class FocusProcess(multiprocessing.Process):
         self.focus_stepper.speed = int(steps_per_second)
 
         # Publish the status "Started" to via MQTT to Node-RED
-        self.actuator_client.client.publish(
-            "status/focus",
-            f'{{"status":"Started", "duration":{nb_steps / steps_per_second}}}',
-        )
+        if self.actuator_client:
+            self.actuator_client.client.publish(
+                "status/focus",
+                f'{{"status":"Started", "duration":{nb_steps / steps_per_second}}}',
+            )
 
         # Depending on direction, select the right direction for the focus
         if direction == "UP":
