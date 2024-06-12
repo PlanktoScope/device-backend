@@ -214,7 +214,6 @@ class FocusProcess(multiprocessing.Process):
             last_message (dict): The last received message.
         """
         loguru.logger.debug("We have received a focusing request")
-        
         action = last_message.get("action")
         if action == "stop":
             self.__handle_stop_action()
@@ -233,13 +232,11 @@ class FocusProcess(multiprocessing.Process):
 
     def __handle_move_action(self, last_message):
         loguru.logger.debug("We have received a move focus command")
-        
         if "direction" not in last_message or "distance" not in last_message:
             loguru.logger.error(f"The received message has the wrong argument {last_message}")
             if self.actuator_client:
                 self.actuator_client.client.publish("status/focus", '{"status":"Error"}')
             return
-
         direction = last_message["direction"]
         distance = float(last_message["distance"])
         speed = float(last_message["speed"]) if "speed" in last_message else 0
