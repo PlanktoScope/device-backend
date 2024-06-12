@@ -168,7 +168,7 @@ class FocusProcess(multiprocessing.Process):
 
         self.stop_event = event
         self.focus_started = False
-        self.actuator_client = None  # Initialize actuator_client to None
+        self.actuator_client: typing.Optional[mqtt.MQTT_Client] = None  # Initialize actuator_client to None
 
         if os.path.exists("/home/pi/PlanktoScope/hardware.json"):
             # load hardware.json
@@ -220,14 +220,16 @@ class FocusProcess(multiprocessing.Process):
             loguru.logger.info("The focus has been interrupted")
 
             # Publish the status "Interrupted" to via MQTT to Node-RED
-            self.actuator_client.client.publish("status/focus", '{"status":"Interrupted"}')
+            if self.actuator_client:
+                self.actuator_client.client.publish("status/focus", '{"status":"Interrupted"}')
 
         elif last_message["action"] == "move":
             loguru.logger.debug("We have received a move focus command")
 
             if "direction" not in last_message or "distance" not in last_message:
                 loguru.logger.error(f"The received message has the wrong argument {last_message}")
-                self.actuator_client.client.publish("status/focus", '{"status":"Error"}')
+                if self.actuator_client:
+                    self.actuator_client.client.publish("status/focus", '{"status":"Error"}')
             # Get direction from the different received arguments
             direction = last_message["direction"]
             # Get number of steps from the different received arguments
@@ -249,6 +251,10 @@ class FocusProcess(multiprocessing.Process):
         Process a received command.
         """
         command = ""
+        if not self.actuator_client:
+            loguru.logger.error("Actuator client is not initialized")
+            return
+
         loguru.logger.info("We received a new message")
         last_message = self.actuator_client.msg["payload"]  # type: ignore
         loguru.logger.debug(last_message)
@@ -259,7 +265,9 @@ class FocusProcess(multiprocessing.Process):
         if command == "focus":
             self.__message_focus(last_message)
         elif command != "":
-            loguru.logger.warning(f"We did not understand the received request {command} - {last_message}")
+            loguru.logger.warning(
+                f"We did not understand the received request {command} - {last_message}"
+            )
 
     def focus(self, direction, distance, speed=focus_max_speed):
         """Moves the focus stepper
@@ -274,7 +282,9 @@ class FocusProcess(multiprocessing.Process):
             speed (int, optional): max speed of the stage, in mm/sec. Defaults to focus_max_speed.
         """
 
-        loguru.logger.info(f"The focus stage will move {direction} for {distance}mm at {speed}mm/sec")
+        loguru.logger.info(
+            f"The focus stage will move {direction} for {distance}mm at {speed}mm/sec"
+        )
 
         # Validation of inputs
         if direction not in ["UP", "DOWN"]:
@@ -327,7 +337,8 @@ class FocusProcess(multiprocessing.Process):
 
         # Creates the MQTT Client
         self.actuator_client = mqtt.MQTT_Client(topic="actuator/#", name="actuator_client")
-        self.actuator_client.client.publish("status/focus", '{"status":"Ready"}')
+        if self.actuator_client:
+            self.actuator_client.client.publish("status/focus", '{"status":"Ready"}')
 
         loguru.logger.success("Stepper is READY!")
         while not self.stop_event.is_set():
@@ -351,7 +362,6 @@ class FocusProcess(multiprocessing.Process):
         if self.actuator_client:
             self.actuator_client.shutdown()
         loguru.logger.success("Stepper process shut down! See you!")
-
 
 
 # This is called if this script is launched directly
