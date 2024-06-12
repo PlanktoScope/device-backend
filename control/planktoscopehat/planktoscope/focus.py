@@ -214,26 +214,26 @@ class FocusProcess(multiprocessing.Process):
             last_message (dict): The last received message.
         """
         loguru.logger.debug("We have received a focusing request")
-        # If a new received command is "focus" but args contains "stop" we stop!
-        if last_message["action"] == "stop":
-            loguru.logger.debug("We have received a stop focus command")
-            self.focus_stepper.shutdown()
-
-            # Print status
-            loguru.logger.info("The focus has been interrupted")
-
-            # Publish the status "Interrupted" to via MQTT to Node-RED
-            if self.actuator_client:
-                self.actuator_client.client.publish("status/focus", '{"status":"Interrupted"}')
-
-        elif last_message["action"] == "move":
-            loguru.logger.debug("We have received a move focus command")
+        
+        action = last_message.get("action")
+        if action == "stop":
+            self.__handle_stop_action()
+        elif action == "move":
             self.__handle_move_action(last_message)
-
         else:
             loguru.logger.warning(f"The received message was not understood {last_message}")
 
+    def __handle_stop_action(self):
+        loguru.logger.debug("We have received a stop focus command")
+        self.focus_stepper.shutdown()
+
+        loguru.logger.info("The focus has been interrupted")
+        if self.actuator_client:
+            self.actuator_client.client.publish("status/focus", '{"status":"Interrupted"}')
+
     def __handle_move_action(self, last_message):
+        loguru.logger.debug("We have received a move focus command")
+        
         if "direction" not in last_message or "distance" not in last_message:
             loguru.logger.error(f"The received message has the wrong argument {last_message}")
             if self.actuator_client:
