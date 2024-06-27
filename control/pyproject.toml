@@ -240,6 +240,13 @@ exclude = [
   'planktoscopehat/planktoscope/imager/.*',
 ]
 
+[[tool.mypy.overrides]]
+# the skip module is an externally-provided package which we don't want to touch:
+module = [
+  'shush.*',
+]
+follow_imports = 'skip'
+
 [tool.pylama]
 # We are gradually introducing linting as we rewrite each module; we haven't rewritten the following
 # files yet:
