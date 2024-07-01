@@ -53,6 +53,7 @@
 # We can use collections.deque https://docs.python.org/3/library/collections.html#collections.deque
 import paho.mqtt.client as mqtt
 import json
+import time
 
 # Logger library compatible with multiprocessing
 from loguru import logger
@@ -140,20 +141,34 @@ class MQTT_Client:
     @logger.catch
     def on_disconnect(self, client, userdata, rc):
         if rc != 0:
-            logger.error(
-                f"Connection to the MQTT server is unexpectedly lost by {self.name}"
-            )
+            logger.error(f"Connection to the MQTT server was unexpectedly lost by {self.name}")
+            self.reconnect()
         else:
             logger.warning(f"Connection to the MQTT server is closed by {self.name}")
+            
         # TODO for now, we just log the disconnection, we need to evaluate what to do
         # in case of communication loss with the server
 
+    @logger.catch
+    def reconnect(self):
+        while True:
+            try:
+                logger.info("Trying to reconnect to the MQTT server...")
+                self.client.connect(self.server, self.port, 60)
+                self.client.loop_start()
+                logger.success("Reconnected to MQTT server")
+                break  
+            except Exception as e:
+                logger.error(f"Reconnection to the MQTT server failed: {self.name}")
+                time.sleep(10) 
+
+
     def new_message_received(self):
-        return self.__new_message
+            return self.__new_message
 
     def read_message(self):
-        logger.debug("clearing the __new_message flag")
-        self.__new_message = False
+            logger.debug("clearing the __new_message flag")
+            self.__new_message = False
 
     @logger.catch
     def shutdown(self, topic="", message=""):
