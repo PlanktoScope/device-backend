@@ -233,19 +233,3 @@ class LightProcess(multiprocessing.Process):
         self.light_client.shutdown()
         logger.success("Light process shut down! See you!")
 
-# This is called if this script is launched directly
-if __name__ == "__main__":
-    led = i2c_led()
-    led.set_torch_current(30)
-    led.output_to_led1()
-    led.activate_torch()
-    time.sleep(5)
-    led.deactivate_torch()
-    led.set_torch_current(10)
-    led.activate_torch()
-    time.sleep(5)
-    led.deactivate_torch()
-    led.set_torch_current(1)
-    led.get_flags()
-    RPi.GPIO.cleanup()
-
