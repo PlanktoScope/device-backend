@@ -83,7 +83,7 @@ class i2c_led:
         logger.debug("Resetting the LED chip")
         self._write_byte(self.Register.id_reset, 0b10000000)
 
-    def get_flags(self):
+    def get_flags(self): # this method checks the state of the LED and logs it out 
         flags = self._read_byte(self.Register.flags)
         self.flash_timeout = bool(flags & 0b1)
         self.UVLO = bool(flags & 0b10)
@@ -104,6 +104,7 @@ class i2c_led:
         if self.IVFM:
             logger.warning("Flag IVFM asserted")
         return flags
+
 
     def set_torch_current(self, current):
         # From 3 to 376mA
@@ -130,6 +131,7 @@ class i2c_led:
         self._write_byte(self.Register.enable, 0b00)
         self.off = False
 
+
     def _write_byte(self, address, data):
         with smbus.SMBus(1) as bus:
             bus.write_byte_data(self.DEVICE_ADDRESS, address, data)
@@ -138,7 +140,6 @@ class i2c_led:
         with smbus.SMBus(1) as bus:
             b = bus.read_byte_data(self.DEVICE_ADDRESS, address)
         return b
-
 ################################################################################
 # Main Segmenter class
 ################################################################################
@@ -159,12 +160,12 @@ class LightProcess(multiprocessing.Process):
         self.light_client = None
         try:
             self.led = i2c_led()
-            self.led.set_torch_current(self.led.DEFAULT_CURRENT)
             self.led.output_to_led1()
             self.led.activate_torch()
             time.sleep(0.5)
             self.led.deactivate_torch()
             self.led.output_to_led1()
+
         except Exception as e:
             logger.error(
                 f"We have encountered an error trying to start the LED module, stopping now, exception is {e}"
@@ -186,6 +187,7 @@ class LightProcess(multiprocessing.Process):
             self.led.output_to_led1()
         self.led.activate_torch()
 
+
     @logger.catch
     def treat_message(self):
         if self.light_client.new_message_received():
@@ -203,6 +205,7 @@ class LightProcess(multiprocessing.Process):
                 self.light_client.client.publish("status/light", '{"status":"Led 1: Off"}')
             else:
                 self.light_client.client.publish("status/light", '{"status":"Invalid action or LED number"}')
+
 
     ################################################################################
     # While loop for capturing commands from Node-RED
@@ -227,9 +230,9 @@ class LightProcess(multiprocessing.Process):
         logger.info("Shutting down the light process")
         self.led.deactivate_torch()
         self.led.set_torch_current(1)
+
         self.led.get_flags()
         RPi.GPIO.cleanup()
         self.light_client.client.publish("status/light", '{"status":"Dead"}')
         self.light_client.shutdown()
         logger.success("Light process shut down! See you!")
-
