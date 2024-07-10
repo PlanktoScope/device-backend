@@ -61,7 +61,7 @@ def handler_stop_signals(signum, _):
 
 
 if __name__ == "__main__":
-    logger.info("Welcome to this testing version of the segmenter (TODO: revert this change)!")
+    logger.info("Welcome!")
     logger.info( "Initialising signals handling and sanitizing the directories (step 1/2)")
     signal.signal(signal.SIGINT, handler_stop_signals)
     signal.signal(signal.SIGTERM, handler_stop_signals)
