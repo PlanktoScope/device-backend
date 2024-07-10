@@ -232,4 +232,3 @@ class LightProcess(multiprocessing.Process):
         self.light_client.client.publish("status/light", '{"status":"Dead"}')
         self.light_client.shutdown()
         logger.success("Light process shut down! See you!")
-
