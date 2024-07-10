@@ -24,6 +24,7 @@ import pandas  # FIXME: just use python's csv library, to shave off pandas's 60 
 import zipfile
 import os
 import io
+import json
 
 """
 Example of metadata file received
@@ -217,6 +218,18 @@ def dtype_to_ecotaxa(dtype):
     return "[t]"
 
 
+def generate_json_summary(metadata, object_list, filename):
+    """Generates a summary JSON file describing the TSV file"""
+    summary = {
+        "name": filename,
+        "args": [
+            {"localisation": [ object_list[0]["metadata"]["object_lat"], object_list[0]["metadata"]["object_lon"]]},
+            {"number_of_objects": len(object_list)}
+            # Add more summary statistics as needed
+        ]
+    }
+    return summary
+
 def ecotaxa_export(archive_filepath, metadata, image_base_path, keep_files=False):
     """Generates the archive compatible with an export to ecotaxa
 
@@ -273,15 +286,21 @@ def ecotaxa_export(archive_filepath, metadata, image_base_path, keep_files=False
 
         # add the tsv to the archive
         archive.writestr(
-            "ecotaxa_export.tsv",
+            "ecotaxa_export_modified.tsv",
             io.BytesIO(
                 tsv_content.to_csv(sep="\t", encoding="utf-8", index=False).encode()
             ).read(),
         )
         if keep_files:
-            tsv_file = os.path.join(image_base_path, "ecotaxa_export.tsv")
+            tsv_file = os.path.join(image_base_path, f"ecotaxa_export_modified.tsv")
             tsv_content.to_csv(
                 path_or_buf=tsv_file, sep="\t", encoding="utf-8", index=False
             )
+    
+    # Generate the JSON summary and write it to a file
+    summary = generate_json_summary(metadata, object_list, filename)
+    with open(os.path.join(image_base_path, "summary.json"), "w") as json_file:
+        json.dump(summary, json_file, indent=4)
+        
     logger.success("Ecotaxa archive is ready!")
     return 1
