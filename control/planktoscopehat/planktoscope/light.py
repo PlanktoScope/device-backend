@@ -23,7 +23,6 @@ class i2c_led:
     """
     LM36011 Led controller
     """
-
     @enum.unique
     class Register(enum.IntEnum):
         enable = 0x01
@@ -32,11 +31,10 @@ class i2c_led:
         torch = 0x04
         flags = 0x05
         id_reset = 0x06
-
+        
     DEVICE_ADDRESS = 0x64
     # This constant defines the current (mA) sent to the LED, 10 allows the use of the full ISO scale and results in a voltage of 2.77v
     DEFAULT_CURRENT = 10
-
     LED_selectPin = 18
 
     def __init__(self):
@@ -147,7 +145,6 @@ class LightProcess(multiprocessing.Process):
 
     def __init__(self, event):
         """Initialize the Light class
-
         Args:
             event (multiprocessing.Event): shutdown event
         """
