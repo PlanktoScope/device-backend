@@ -18,7 +18,6 @@
 # Logger library compatible with multiprocessing
 from loguru import logger
 
-#this is a test comment
 import numpy
 import pandas  # FIXME: just use python's csv library, to shave off pandas's 60 MB of unnecessary disk space usage
 import zipfile
