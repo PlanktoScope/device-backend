@@ -127,7 +127,6 @@ class Worker(threading.Thread):
 
             loguru.logger.success("Done shutting down!")
 
-
     @loguru.logger.catch
     def _receive_message(self, message: dict[str, typing.Any]) -> typing.Optional[str]:
         """Handle a single MQTT message.
