@@ -93,10 +93,6 @@ class Worker(threading.Thread):
         # removing the "settings" action from the "imager/image" route which is a breaking change
         # to the MQTT API, so we'll do this later.
         mqtt = messaging.MQTT_Client(topic="camera/info", name="imager_camera_client")
-        mqtt.client.publish(
-            "status/camera/info",
-            json.dumps({"status": "success", "camera_name": self._camera.camera_name}),
-        )
 
         try:
             while not self._stop_event_loop.is_set():
@@ -108,11 +104,7 @@ class Worker(threading.Thread):
                     continue
                 self._receive_message(message)
                 if message["topic"] == "camera/info" and message["payload"].get("action") == "get":
-                    camera_name = (
-                        self._camera.camera_name
-                        if self._camera is not None
-                        else "Not recognized"
-                    )
+                    camera_name = self._camera.camera_name
                     response_payload = json.dumps(
                         {"status": "success", "camera_name": camera_name}
                     )
@@ -134,6 +126,7 @@ class Worker(threading.Thread):
             self._camera = None
 
             loguru.logger.success("Done shutting down!")
+
 
     @loguru.logger.catch
     def _receive_message(self, message: dict[str, typing.Any]) -> typing.Optional[str]:
