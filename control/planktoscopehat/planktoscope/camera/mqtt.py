@@ -89,6 +89,9 @@ class Worker(threading.Thread):
         streaming_thread.start()
 
         loguru.logger.info("Starting the MQTT backend...")
+        # TODO(ethanjli): expose the camera settings over "camera/settings" instead! This requires
+        # removing the "settings" action from the "imager/image" route which is a breaking change
+        # to the MQTT API, so we'll do this later.
         mqtt = messaging.MQTT_Client(topic="camera/info", name="imager_camera_client")
         mqtt.client.publish(
             "status/camera/info",
