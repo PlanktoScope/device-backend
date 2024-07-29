@@ -37,6 +37,7 @@ class stepper:
         self.__goal = 0
         self.__direction = ""
         self.__stepper.disable_motor()
+        self.__steps_moved = 0  # Track steps moved
 
     def at_goal(self):
         """Is the motor at its goal
@@ -62,6 +63,8 @@ class stepper:
           distance:
         """
         self.__direction = direction
+        self.__steps_moved = distance  # Store the commanded distance (steps)
+
         if self.__direction == FORWARD:
             self.__goal = int(self.__stepper.get_position() + distance)
         elif self.__direction == BACKWARD:
