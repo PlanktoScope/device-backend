@@ -434,9 +434,12 @@ class StepperProcess(multiprocessing.Process):
                 self.treat_command()
             if self.pump_started and self.pump_stepper.at_goal():
                 logger.success("The pump movement is over!")
+                actual_steps_moved = self.pump_stepper._stepper__steps_moved  # Get the steps moved
+                actual_volume_pumped = actual_steps_moved / self.pump_steps_per_ml  # Calculate the volume
+
                 self.actuator_client.client.publish(
                     "status/pump",
-                    '{"status":"Done"}',
+                    json.dumps({"status": "Completed", "volume_pumped": actual_volume_pumped}),
                 )
                 self.pump_started = False
                 self.pump_stepper.release()
