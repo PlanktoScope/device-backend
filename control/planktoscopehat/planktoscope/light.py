@@ -212,7 +212,7 @@ class LightProcess(multiprocessing.Process):
         )
         # MQTT Service connection
         self.light_client = planktoscope.mqtt.MQTT_Client(
-            topic="light", name="light_client"
+            topic="actuator/light", name="light_client"
         )
         # Publish the status "Ready" to via MQTT to Node-RED
         self.light_client.client.publish("status/light", '{"status":"Ready"}')
