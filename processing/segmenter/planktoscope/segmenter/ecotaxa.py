@@ -204,10 +204,10 @@ The metadata and data for each image is organised in various levels (image, obje
 def generate_json_summary(metadata,object_list,filename):
     """Generates a summary JSON file describing the TSV file"""
     nb_objects=len(object_list)
-    acq_imaged_volume=metadata.get("acq_imaged_volume") if metadata.get("acq_imaged_volume") else 1
-    sample_dilution_factor=metadata.get("sample_dilution_factor") if metadata.get("sample_dilution_factor") else 1
-    sample_concentrated_sample_volume=metadata.get("sample_concentrated_sample_volume") if metadata.get("sample_concentrated_sample_volume") else 1
-    sample_total_volume=metadata.get("sample_total_volume") if metadata.get("sample_total_volume") else 1
+    acq_imaged_volume=float(metadata.get("acq_imaged_volume")) if metadata.get("acq_imaged_volume") else 1
+    sample_dilution_factor=float(metadata.get("sample_dilution_factor")) if metadata.get("sample_dilution_factor") else 1
+    sample_concentrated_sample_volume=float(metadata.get("sample_concentrated_sample_volume")) if metadata.get("sample_concentrated_sample_volume") else 1
+    sample_total_volume=float(metadata.get("sample_total_volume")) if metadata.get("sample_total_volume") else 1
     
 
     summary = {
@@ -292,6 +292,7 @@ def ecotaxa_export(archive_filepath, metadata, image_base_path,data_path,keep_fi
 
         # create the filename with the acquisition ID
         acquisition_id = metadata.get("acq_id")
+        acquisition_id=acquisition_id.replace(" ","_")
         tsv_filename = f"ecotaxa_{acquisition_id}.tsv"
 
         # add the tsv to the archive
