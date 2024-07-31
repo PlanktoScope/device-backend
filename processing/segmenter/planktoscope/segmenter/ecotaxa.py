@@ -201,6 +201,23 @@ The metadata and data for each image is organised in various levels (image, obje
         sample_*** [t] : other fields relative to the sample. Up to 30 of them.
 """
 
+def generate_json_summary(metadata,object_list,filename):
+    """Generates a summary JSON file describing the TSV file"""
+    nb_objects=len(object_list)
+    acq_imaged_volume=metadata.get("acq_imaged_volume") if metadata.get("acq_imaged_volume") else 1
+    sample_dilution_factor=metadata.get("sample_dilution_factor") if metadata.get("sample_dilution_factor") else 1
+    sample_concentrated_sample_volume=metadata.get("sample_concentrated_sample_volume") if metadata.get("sample_concentrated_sample_volume") else 1
+    sample_total_volume=metadata.get("sample_total_volume") if metadata.get("sample_total_volume") else 1
+    
+
+    summary = {
+        "filename": filename,
+        "Objects/ml": (nb_objects/acq_imaged_volume)*sample_dilution_factor*(sample_concentrated_sample_volume/sample_total_volume*1000),
+        "lat": metadata.get("object_lat"),
+        "lon": metadata.get("object_lon"),
+        "date": metadata.get("object_date")
+    }
+    return summary
 
 def dtype_to_ecotaxa(dtype):
     """Determines the EcoTaxa header field type annotation for the dtype"""
@@ -217,19 +234,9 @@ def dtype_to_ecotaxa(dtype):
     return "[t]"
 
 
-def generate_json_summary(metadata, object_list, filename):
-    """Generates a summary JSON file describing the TSV file"""
-    summary = {
-        "name": filename,
-        "args": [
-            {"localisation": [ object_list[0]["metadata"]["object_lat"], object_list[0]["metadata"]["object_lon"]]},
-            {"number_of_objects": len(object_list)}
-            # Add more summary statistics as needed
-        ]
-    }
-    return summary
 
-def ecotaxa_export(archive_filepath, metadata, image_base_path, keep_files=False):
+
+def ecotaxa_export(archive_filepath, metadata, image_base_path,data_path,keep_files=False):
     """Generates the archive compatible with an export to ecotaxa
 
     Args:
@@ -299,11 +306,16 @@ def ecotaxa_export(archive_filepath, metadata, image_base_path, keep_files=False
             tsv_content.to_csv(
                 path_or_buf=tsv_file, sep="\t", encoding="utf-8", index=False
             )
-    
-    # Generate the JSON summary and write it to a file
-    summary = generate_json_summary(metadata, object_list, filename)
-    with open(os.path.join(image_base_path, "summary.json"), "w") as json_file:
-        json.dump(summary, json_file, indent=4)
         
     logger.success("Ecotaxa archive is ready!")
+
+    # Generate the JSON summary and write it to a file
+    
+    summary = generate_json_summary(metadata,object_list,tsv_filename)
+    with open(os.path.join(data_path, "summary.json"), "w") as json_file:
+        json.dump(summary, json_file, indent=4)
+
+    logger.success("Ecotaxa archive is ready!")
+
+    
     return 1
