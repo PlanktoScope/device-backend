@@ -215,7 +215,11 @@ def generate_json_summary(metadata,object_list,filename):
         "Objects/ml": (nb_objects/acq_imaged_volume)*sample_dilution_factor*(sample_concentrated_sample_volume/sample_total_volume*1000),
         "lat": metadata.get("object_lat"),
         "lon": metadata.get("object_lon"),
-        "date": metadata.get("object_date")
+        "date": metadata.get("object_date"),
+        "acq_imaged_volume":acq_imaged_volume,
+        "sample_dilution_factor":sample_dilution_factor,
+        "sample_concentrated_sample_volume":sample_concentrated_sample_volume,
+        "sample_total_volume":sample_total_volume
     }
     return summary
 
@@ -310,11 +314,30 @@ def ecotaxa_export(archive_filepath, metadata, image_base_path,data_path,keep_fi
         
     logger.success("Ecotaxa archive is ready!")
 
-    # Generate the JSON summary and write it to a file
-    
-    summary = generate_json_summary(metadata,object_list,tsv_filename)
-    with open(os.path.join(data_path, "summary.json"), "w") as json_file:
-        json.dump(summary, json_file, indent=4)
+    # Generate the JSON summary
+    summary = generate_json_summary(metadata, object_list, tsv_filename)
+
+    # Define the path to the summary file
+    summary_file_path = os.path.join(data_path, "summary.json")
+
+    # Check if the summary file exists
+    if os.path.exists(summary_file_path):
+        # Load the existing content
+        with open(summary_file_path, "r") as json_file:
+            try:
+                existing_data = json.load(json_file)
+            except json.JSONDecodeError:
+                existing_data = []
+    else:
+        # If the file does not exist, initialize an empty list
+        existing_data = []
+
+    # Append the new summary to the existing content
+    existing_data.append(summary)
+
+    # Write the updated content back to the file
+    with open(summary_file_path, "w") as json_file:
+        json.dump(existing_data, json_file, indent=4)
 
     logger.success("Ecotaxa archive is ready!")
 
