@@ -568,12 +568,6 @@ class ImagerProcess(multiprocessing.Process):
         self.__pump_message()
 
         self.__imager.change(planktoscope.imager.state_machine.Waiting)
-    
-    def __send_image_count(self):
-        """Send the image count via MQTT"""
-        message = json.dumps({"image_count": self.__img_done})
-        self.imager_client.client.publish("status/image_count", message)
-        logger.debug(f"Image count message sent: {message}")
 
     def __state_capture(self):
         filename = f"{datetime.datetime.now().strftime('%H_%M_%S_%f')}.jpg"
@@ -718,34 +712,6 @@ class ImagerProcess(multiprocessing.Process):
             if self.imager_client.new_message_received():
                 self.treat_message()
             self.state_machine()
-            if self.__imager.state.name == "imaging":
-                self.__create_directory()
-                self.__img_done = 0  # Reset image count at the start of imaging
-                while self.__img_done < self.__img_goal:
-                    # Code to capture and save an image (existing code)
-                    # Assuming this is where images are saved:
-                    # (Insert the actual image saving code here)
-
-                    self.__img_done += 1  # Increment image count
-                    time.sleep(self.__sleep_before)
-                    self.imager_client.client.publish(
-                        "actuator/pump",
-                        json.dumps(
-                            {
-                                "action": "move",
-                                "volume": self.__pump_volume,
-                                "direction": self.__pump_direction,
-                            }
-                        ),
-                    )
-                    if self.stop_event.is_set():
-                        break
-                self.__save_metadata()
-                self.__send_image_count()  # Send image count after imaging completes
-                self.imager_client.client.publish(
-                    "status/imager", '{"status":"Completed"}'
-                )
-                self.__imager.change(planktoscope.imager.state_machine.Stop)
             time.sleep(0.001)
 
         logger.info("Shutting down the imager process")
