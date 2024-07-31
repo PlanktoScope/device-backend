@@ -216,6 +216,7 @@ def generate_json_summary(metadata,object_list,filename):
         "lat": metadata.get("object_lat"),
         "lon": metadata.get("object_lon"),
         "date": metadata.get("object_date"),
+        "number_of_object":nb_objects,
         "acq_imaged_volume":acq_imaged_volume,
         "sample_dilution_factor":sample_dilution_factor,
         "sample_concentrated_sample_volume":sample_concentrated_sample_volume,
