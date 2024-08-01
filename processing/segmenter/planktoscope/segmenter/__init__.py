@@ -512,8 +512,9 @@ class SegmenterProcess(multiprocessing.Process):
             # Extract the object and get all the metadata about the image
             individual_mask = (labels == region.label).astype(np.uint8)
             obj_image = self._crop_and_apply_mask(img, individual_mask)
+            region_image = img[region.slice]
             if obj_image is not None:
-                colors = self._get_color_info(obj_image, region.filled_image)
+                colors = self._get_color_info(region_image, region.filled_image)
                 metadata = self._extract_metadata_from_regionprop(region)
 
                 object_id = f"{name}_{i}"
