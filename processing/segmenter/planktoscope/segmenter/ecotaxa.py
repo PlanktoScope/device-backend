@@ -218,7 +218,7 @@ def dtype_to_ecotaxa(dtype):
 
 
 
-def ecotaxa_export(archive_filepath, metadata, image_base_path,data_path,keep_files=False):
+def ecotaxa_export(archive_filepath, metadata, image_base_path,keep_files=False):
     """Generates the archive compatible with an export to ecotaxa
 
     Args:
