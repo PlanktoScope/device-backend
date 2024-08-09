@@ -96,8 +96,6 @@ class SegmenterProcess(multiprocessing.Process):
         self.stop_event = event
         self.__pipe = None
         self.segmenter_client = None
-        # Root path
-        self.__data_path=data_path
         # Where captured images are saved
         self.__img_path = os.path.join(data_path, "img/")
         # To save export folders
@@ -726,7 +724,6 @@ class SegmenterProcess(multiprocessing.Process):
                     self.__archive_fn,
                     self.__global_metadata,
                     self.__working_obj_path,
-                    self.__data_path,
                     keep_files=True,
                 ):
                     logger.success("Ecotaxa archive export completed for this folder")

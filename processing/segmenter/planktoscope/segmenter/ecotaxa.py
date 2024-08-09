@@ -201,29 +201,6 @@ The metadata and data for each image is organised in various levels (image, obje
         sample_*** [t] : other fields relative to the sample. Up to 30 of them.
 """
 
-def generate_json_summary(metadata,object_list,filename):
-    """Generates a summary JSON file describing the TSV file"""
-    nb_objects=len(object_list)
-    acq_imaged_volume=float(metadata.get("acq_imaged_volume")) if metadata.get("acq_imaged_volume") else 1
-    sample_dilution_factor=float(metadata.get("sample_dilution_factor")) if metadata.get("sample_dilution_factor") else 1
-    sample_concentrated_sample_volume=float(metadata.get("sample_concentrated_sample_volume")) if metadata.get("sample_concentrated_sample_volume") else 1
-    sample_total_volume=float(metadata.get("sample_total_volume")) if metadata.get("sample_total_volume") else 1
-    
-
-    summary = {
-        "filename": filename,
-        "Objects/ml": (nb_objects/acq_imaged_volume)*sample_dilution_factor*(sample_concentrated_sample_volume/(sample_total_volume*1000)),
-        "lat": metadata.get("object_lat"),
-        "lon": metadata.get("object_lon"),
-        "date": metadata.get("object_date"),
-        "number_of_object":nb_objects,
-        "acq_imaged_volume":acq_imaged_volume,
-        "sample_dilution_factor":sample_dilution_factor,
-        "sample_concentrated_sample_volume":sample_concentrated_sample_volume,
-        "sample_total_volume":sample_total_volume
-    }
-    return summary
-
 def dtype_to_ecotaxa(dtype):
     """Determines the EcoTaxa header field type annotation for the dtype"""
     # Note: this code was copied from the MIT-licensed MorphoCut library at
@@ -314,33 +291,5 @@ def ecotaxa_export(archive_filepath, metadata, image_base_path,data_path,keep_fi
             )
         
     logger.success("Ecotaxa archive is ready!")
-
-    # Generate the JSON summary
-    summary = generate_json_summary(metadata, object_list, tsv_filename)
-
-    # Define the path to the summary file
-    summary_file_path = os.path.join(data_path, "summary.json")
-
-    # Check if the summary file exists
-    if os.path.exists(summary_file_path):
-        # Load the existing content
-        with open(summary_file_path, "r") as json_file:
-            try:
-                existing_data = json.load(json_file)
-            except json.JSONDecodeError:
-                existing_data = []
-    else:
-        # If the file does not exist, initialize an empty list
-        existing_data = []
-
-    # Append the new summary to the existing content
-    existing_data.append(summary)
-
-    # Write the updated content back to the file
-    with open(summary_file_path, "w") as json_file:
-        json.dump(existing_data, json_file, indent=4)
-
-    logger.success("Ecotaxa archive is ready!")
-
-    
+   
     return 1
