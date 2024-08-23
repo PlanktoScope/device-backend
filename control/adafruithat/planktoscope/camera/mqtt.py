@@ -92,9 +92,7 @@ class Worker(threading.Thread):
         try:
             _validate_settings(changes)
         except (TypeError, ValueError) as e:
-            loguru.logger.exception(
-                f"Couldn't default ISO value to valid settings: {changes}",
-            )
+            raise ValueError("Invalid default ISO") from e
         self._camera.settings = changes
         loguru.logger.debug(
             f"Set image gain to {changes.image_gain} for sensor {self._camera.sensor_name}!",
@@ -242,7 +240,7 @@ def _convert_settings(
 # and refer to https://forums.raspberrypi.com/viewtopic.php?t=282760 for details on ISO
 # vs. image gain calibration for the Pi HQ Camera Module:
 ISO_CALIBRATIONS = {  # this is ISO / image-gain
-    "IMX219": 100 / 1.84,    # Pi Camera v2 Module
+    "IMX219": 100 / 1.84,  # Pi Camera v2 Module
     "IMX477": 100 / 2.3125,  # Pi HQ Camera Module
 }
 
