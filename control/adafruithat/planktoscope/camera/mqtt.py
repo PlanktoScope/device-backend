@@ -93,9 +93,8 @@ class Worker(threading.Thread):
             _validate_settings(changes)
         except (TypeError, ValueError) as e:
             loguru.logger.exception(
-                f"Couldn't default ISO value to valid settings: {settings}",
+                f"Couldn't default ISO value to valid settings: {changes}",
             )
-            return json.dumps({"status": f"Error: {str(e)}"})
         self._camera.settings = changes
         loguru.logger.debug(
             f"Set image gain to {changes.image_gain} for sensor {self._camera.sensor_name}!",
