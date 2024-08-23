@@ -242,7 +242,7 @@ def _convert_settings(
 # and refer to https://forums.raspberrypi.com/viewtopic.php?t=282760 for details on ISO
 # vs. image gain calibration for the Pi HQ Camera Module:
 ISO_CALIBRATIONS = {  # this is ISO / image-gain
-    "IMX219": 100 / 1.84,    # Pi Camera v2 Module
+    "IMX219": 100 / 1.84,  # Pi Camera v2 Module
     "IMX477": 100 / 2.3125,  # Pi HQ Camera Module
 }
 
