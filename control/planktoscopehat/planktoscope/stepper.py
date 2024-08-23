@@ -37,6 +37,7 @@ class stepper:
         self.__goal = 0
         self.__direction = ""
         self.__stepper.disable_motor()
+        self.__steps_moved = 0  # Track steps moved
 
     def at_goal(self):
         """Is the motor at its goal
@@ -62,6 +63,8 @@ class stepper:
           distance:
         """
         self.__direction = direction
+        self.__steps_moved = distance  # Store the commanded distance (steps)
+
         if self.__direction == FORWARD:
             self.__goal = int(self.__stepper.get_position() + distance)
         elif self.__direction == BACKWARD:
@@ -431,9 +434,12 @@ class StepperProcess(multiprocessing.Process):
                 self.treat_command()
             if self.pump_started and self.pump_stepper.at_goal():
                 logger.success("The pump movement is over!")
+                actual_steps_moved = self.pump_stepper._stepper__steps_moved  # Get the steps moved
+                actual_volume_pumped = actual_steps_moved / self.pump_steps_per_ml  # Calculate the volume
+
                 self.actuator_client.client.publish(
                     "status/pump",
-                    '{"status":"Done"}',
+                    json.dumps({"status": "Completed", "volume_pumped": actual_volume_pumped}),
                 )
                 self.pump_started = False
                 self.pump_stepper.release()
