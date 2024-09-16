@@ -18,6 +18,7 @@
 # Logger library compatible with multiprocessing
 from loguru import logger
 
+
 import numpy
 import pandas  # FIXME: just use python's csv library, to shave off pandas's 60 MB of unnecessary disk space usage
 import zipfile
@@ -200,6 +201,7 @@ The metadata and data for each image is organised in various levels (image, obje
         sample_*** [t] : other fields relative to the sample. Up to 30 of them.
 """
 
+
 def dtype_to_ecotaxa(dtype):
     """Determines the EcoTaxa header field type annotation for the dtype"""
     # Note: this code was copied from the MIT-licensed MorphoCut library at
@@ -213,8 +215,6 @@ def dtype_to_ecotaxa(dtype):
         raise
 
     return "[t]"
-
-
 
 
 def ecotaxa_export(archive_filepath, metadata, image_base_path, keep_files=False):
