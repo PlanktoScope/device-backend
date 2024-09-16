@@ -23,7 +23,6 @@ import pandas  # FIXME: just use python's csv library, to shave off pandas's 60 
 import zipfile
 import os
 import io
-import json
 
 """
 Example of metadata file received
@@ -218,7 +217,7 @@ def dtype_to_ecotaxa(dtype):
 
 
 
-def ecotaxa_export(archive_filepath, metadata, image_base_path,keep_files=False):
+def ecotaxa_export(archive_filepath, metadata, image_base_path, keep_files=False):
     """Generates the archive compatible with an export to ecotaxa
 
     Args:
@@ -274,7 +273,7 @@ def ecotaxa_export(archive_filepath, metadata, image_base_path,keep_files=False)
 
         # create the filename with the acquisition ID
         acquisition_id = metadata.get("acq_id")
-        acquisition_id=acquisition_id.replace(" ","_")
+        acquisition_id = acquisition_id.replace(" ","_")
         tsv_filename = f"ecotaxa_{acquisition_id}.tsv"
 
         # add the tsv to the archive
@@ -289,7 +288,5 @@ def ecotaxa_export(archive_filepath, metadata, image_base_path,keep_files=False)
             tsv_content.to_csv(
                 path_or_buf=tsv_file, sep="\t", encoding="utf-8", index=False
             )
-        
     logger.success("Ecotaxa archive is ready!")
-   
     return 1
