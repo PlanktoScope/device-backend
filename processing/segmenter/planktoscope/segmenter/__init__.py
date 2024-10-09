@@ -551,6 +551,15 @@ class SegmenterProcess(multiprocessing.Process):
                         color=(150, 0, 200),
                         thickness=1,
                     )
+                    tagged_image = cv2.ellipse(
+                        tagged_image,
+                        center=region.centroid,
+                        axes=(region.axis_major_length, region.axis_minor_length),
+                        angle=math.degrees(region.orientation),
+                        startAngle=0,
+                        endAngle=360,
+                        color=(150, 0, 200),
+                    )
                     contours, hierarchy = cv2.findContours(
                         np.uint8(region.image),
                         mode=cv2.RETR_TREE,  # RETR_FLOODFILL or RETR_EXTERNAL
