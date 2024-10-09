@@ -553,8 +553,8 @@ class SegmenterProcess(multiprocessing.Process):
                     )
                     tagged_image = cv2.ellipse(
                         tagged_image,
-                        center=region.centroid,
-                        axes=(region.axis_major_length, region.axis_minor_length),
+                        center=(int(region.centroid[1]), int(region.centroid[0])),
+                        axes=(int(region.axis_major_length), int(region.axis_minor_length)),
                         angle=math.degrees(region.orientation),
                         startAngle=0,
                         endAngle=360,
