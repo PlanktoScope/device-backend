@@ -555,7 +555,7 @@ class SegmenterProcess(multiprocessing.Process):
                         tagged_image,
                         center=(int(region.centroid[1]), int(region.centroid[0])),
                         axes=(int(region.axis_major_length / 2), int(region.axis_minor_length / 2)),
-                        angle=math.degrees(region.orientation),
+                        angle=(90 - math.degrees(region.orientation)),
                         startAngle=0,
                         endAngle=360,
                         color=(150, 0, 200),
