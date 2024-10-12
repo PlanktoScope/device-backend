@@ -74,15 +74,15 @@ class _StreamingHandler(server.BaseHTTPRequestHandler):
         # TODO: measure histograms of frame wait duration and frame send duration. Log any
         # anomalies (i.e. unexpectedly high durations)
         self._send_mjpeg_header()
-        last_frame_time = time.time()
+        last_frame_time = time.perf_counter()
         while True:
             waited = False
-            while not waited or time.time() - last_frame_time < min_interval:
+            while not waited or time.perf_counter() - last_frame_time < min_interval:
                 self.latest_frame.wait_next()
                 waited = True
             if (frame := self.latest_frame.get()) is None:
                 continue
-            last_frame_time = time.time()
+            last_frame_time = time.perf_counter()
             self._send_mjpeg_frame(frame)
 
     def _send_mjpeg_header(self) -> None:
