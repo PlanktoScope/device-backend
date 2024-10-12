@@ -28,7 +28,7 @@ class _StreamingHandler(server.BaseHTTPRequestHandler):
         request: typing.Union[socket.socket, tuple[bytes, socket.socket]],
         client_address: tuple[str, int],
         server_: socketserver.BaseServer,
-        max_framerate: typing.Optional[int] = 25,  # fps
+        max_framerate: typing.Optional[int] = 15,  # fps
     ) -> None:
         self.latest_frame = latest_frame
         self._max_framerate = max_framerate
