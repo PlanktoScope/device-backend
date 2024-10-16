@@ -442,9 +442,6 @@ class PreviewStream(io.BufferedIOBase):
     downstream clients sending the buffer across a network, when the buffer is a large image) from
     degrading stream quality for everyone.
 
-    Note that no thread synchronization is managed for any buffer; consumers must avoid modifying
-    the buffer once they have access to it.
-
     This stream can be used by anything which requires a [io.BufferedIOBase], assuming it never
     splits any buffer across multiple calls of the `write()` method.
     """
@@ -483,6 +480,7 @@ class PreviewStream(io.BufferedIOBase):
             self._available.wait()
 
     def get(self) -> typing.Optional[bytes]:
-        """Return the latest buffer in the stream."""
+        """Return a copy of the latest buffer in the stream."""
         with self._latest_buffer_lock.gen_rlock():
-            return self._latest_buffer
+            b = self._latest_buffer[:]
+        return b
