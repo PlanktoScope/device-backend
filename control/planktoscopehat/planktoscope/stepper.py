@@ -4,7 +4,6 @@ import json
 import os
 import planktoscope.mqtt
 import multiprocessing
-import RPi.GPIO
 
 import shush
 

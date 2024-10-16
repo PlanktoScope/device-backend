@@ -12,7 +12,8 @@ import multiprocessing
 # Basic planktoscope libraries
 import planktoscope.mqtt
 
-import RPi.GPIO
+from gpiozero import PWMLED
+from gpiozero import LED
 
 import subprocess  # nosec
 
@@ -24,6 +25,8 @@ import enum
 
 logger.info("planktoscope.light is loaded")
 
+LED_selectPin = 18
+led = LED(LED_selectPin)
 
 def i2c_update():
     # Update the I2C Bus in order to really update the LEDs new values
@@ -57,9 +60,6 @@ class i2c_led:
         self.UVLO = False
         self.flash_timeout = False
         self.IVFM = False
-        RPi.GPIO.setwarnings(False)
-        RPi.GPIO.setmode(RPi.GPIO.BCM)
-        RPi.GPIO.setup(self.LED_selectPin, RPi.GPIO.OUT)
         self.output_to_led1()
         self.on = False
         try:
@@ -80,11 +80,7 @@ class i2c_led:
 
     def output_to_led1(self):
         logger.debug("Switching output to LED 1")
-        RPi.GPIO.output(self.LED_selectPin, RPi.GPIO.HIGH)
-
-    def output_to_led2(self):
-        logger.debug("Switching output to LED 2")
-        RPi.GPIO.output(self.LED_selectPin, RPi.GPIO.LOW)
+        led.on()
 
     def get_id(self):
         led_id = self._read_byte(self.Register.id_reset)
@@ -175,19 +171,14 @@ class i2c_led:
 
 
 class pwm_led:
-    def __init__(self, led):
-        RPi.GPIO.setmode(RPi.GPIO.BCM)
+    def __init__(self, led, led0Pin, led1Pin, frequency):
         self.led = led
         if self.led == 0:
-            RPi.GPIO.setup(led0Pin, RPi.GPIO.OUT)
-            RPi.GPIO.output(led0Pin, RPi.GPIO.LOW)
-            self.pwm0 = RPi.GPIO.PWM(led0Pin, FREQUENCY)
-            self.pwm0.start(0)
+            self.pwm0 = PWMLED(led0Pin, frequency=frequency)
+            self.pwm0.value = 0 
         elif self.led == 1:
-            RPi.GPIO.setup(led1Pin, RPi.GPIO.OUT)
-            RPi.GPIO.output(led1Pin, RPi.GPIO.LOW)
-            self.pwm1 = RPi.GPIO.PWM(led1Pin, FREQUENCY)
-            self.pwm1.start(0)
+            self.pwm1 = PWMLED(led1Pin, frequency=frequency)
+            self.pwm1.value = 0
 
     def change_duty(self, dc):
         if self.led == 0:
@@ -196,20 +187,22 @@ class pwm_led:
             self.pwm1.ChangeDutyCycle(dc)
 
     def off(self):
-        if self.led == 0:
-            logger.debug("Turning led 1 off")
-            self.pwm0.ChangeDutyCycle(0)
-        elif self.led == 1:
-            logger.debug("Turning led 2 off")
-            self.pwm1.ChangeDutyCycle(0)
+        led.off() 
+        # if self.led == 0:
+        #     logger.debug("Turning led 1 off")
+        #     led.off() 
+        # elif self.led == 1:
+        #     logger.debug("Turning led 2 off")
+        #     self.pwm1.ChangeDutyCycle(0)
 
     def on(self):
-        if self.led == 0:
-            logger.debug("Turning led 1 on")
-            self.pwm0.ChangeDutyCycle(100)
-        elif self.led == 1:
-            logger.debug("Turning led 2 on")
-            self.pwm1.ChangeDutyCycle(100)
+        led.on() 
+        # if self.led == 0:
+        #     logger.debug("Turning led 1 on")
+        #     self.pwm0.ChangeDutyCycle(100)
+        # elif self.led == 1:
+        #     logger.debug("Turning led 2 on")
+        #     self.pwm1.ChangeDutyCycle(100)
 
     def stop(self):
         if self.led == 0:
@@ -243,15 +236,12 @@ class LightProcess(multiprocessing.Process):
             self.led.activate_torch_ramp()
             self.led.activate_torch()
             time.sleep(0.5)
-            self.led.output_to_led2()
-            time.sleep(0.5)
             self.led.deactivate_torch()
             self.led.output_to_led1()
         except Exception as e:
             logger.error(
                 f"We have encountered an error trying to start the LED module, stopping now, exception is {e}"
             )
-            self.led.output_to_led2()
             raise e
         else:
             logger.success("planktoscope.light is initialised and ready to go!")
@@ -269,9 +259,9 @@ class LightProcess(multiprocessing.Process):
         if led == 0:
             logger.debug("Turning led 1 on")
             self.led.output_to_led1()
-        elif led == 1:
-            logger.debug("Turning led 2 on")
-            self.led.output_to_led2()
+        # elif led == 1:
+        #     logger.debug("Turning led 2 on")
+        #     self.led.output_to_led2()
         self.led.activate_torch()
 
     @logger.catch
@@ -393,7 +383,6 @@ class LightProcess(multiprocessing.Process):
         self.led.set_torch_current(1)
         self.led.set_flash_current(1)
         self.led.get_flags()
-        RPi.GPIO.cleanup()
         self.light_client.client.publish("status/light", '{"status":"Dead"}')
         self.light_client.shutdown()
         logger.success("Light process shut down! See you!")
@@ -415,4 +404,3 @@ if __name__ == "__main__":
     led.set_torch_current(1)
     led.set_flash_current(1)
     led.get_flags()
-    RPi.GPIO.cleanup()
