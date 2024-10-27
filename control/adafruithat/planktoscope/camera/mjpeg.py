@@ -71,6 +71,9 @@ class _StreamingHandler(server.BaseHTTPRequestHandler):
         min_interval = 0.0
         if self._max_framerate is not None:
             min_interval = 1.0 / self._max_framerate  # s
+        # TODO: manually make a histogram as a collection of counters with durations corresponding
+        # to >30 fps, 30 fps, 25 fps, 20 fps, 15 fps, 10 fps, 5 fps, 2 fps, 1 fps, <1 fps. Clear
+        # the histogram after each scheduled report.
         # TODO: measure histograms of frame wait duration and frame send duration. Log any
         # anomalies (i.e. unexpectedly high durations)
         self._send_mjpeg_header()
