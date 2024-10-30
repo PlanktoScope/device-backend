@@ -483,7 +483,7 @@ class SegmenterProcess(multiprocessing.Process):
         labels, nlabels = skimage.measure.label(mask, return_num=True)
         regionprops = skimage.measure.regionprops(labels)
         regionprops_filtered = [
-            region for region in regionprops if prop.filled_area >= min_area
+            region for region in regionprops if region.filled_area >= min_area
         ]
         object_number = len(regionprops_filtered)
         logger.debug(f"Found {nlabels} labels, or {object_number} after size filtering")
