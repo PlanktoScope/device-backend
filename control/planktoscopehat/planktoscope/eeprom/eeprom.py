@@ -35,8 +35,7 @@ class EEPROM:
                 # Ensure data doesn't exceed page boundaries
                 page_boundary = self.MAX_BLOCK_SIZE - (current_addr % self.MAX_BLOCK_SIZE)
                 write_length = min(len(remaining_data), page_boundary)
-                mem_addr_high = (current_addr >> 8) & 0xFF  # High byte of memory address
-                mem_addr_low = current_addr & 0xFF  # Low byte of memory address
+                mem_addr_high, mem_addr_low = self._get_memory_address_bytes(current_addr)
 
                 self._write_control.off()  # Enable writing by setting write control low
                 try:
@@ -91,7 +90,15 @@ class EEPROM:
         start_addr: list[int],
         data_lengths: list[int]
     ) -> None:
-        # Edit specific data in EEPROM based on labels, starting addresses, and lengths
+        """Edit specific data in EEPROM based on labels, starting addresses, and lengths.
+
+        Args:
+            data: A dictionary where each key-value pair represents data to be written.
+            labels: A list of label names corresponding to EEPROM data fields.
+            start_addr: A list of starting addresses for each label.
+            data_lengths: A list of maximum data lengths for each label.
+        """
+
         keys = list(data.keys())  # List of keys in data dictionary
 
         for _, key in enumerate(keys):
