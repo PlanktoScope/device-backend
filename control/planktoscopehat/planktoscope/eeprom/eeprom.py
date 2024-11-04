@@ -23,10 +23,10 @@ class EEPROM:
         self._write_control = gpiozero.OutputDevice(gpio_pin, active_high=True)
 
     def write_on_eeprom(self, start_addr: list[int], data: dict[str, str]) -> None:
-        # Write data to EEPROM starting from specified addresses
+        """Writes data to the EEPROM starting from specified addresses."""
         values = list(data.values())  # Convert data dictionary values into a list
 
-        for i in range(len(values)):
+        for i, value in enumerate(values):
             current_addr = start_addr[i]  # Starting address for this data segment
             data_to_write = [ord(char) for char in values[i]]  # Convert each character to ASCII
             remaining_data = data_to_write  # Data remaining to be written
@@ -79,7 +79,7 @@ class EEPROM:
                 # Convert byte list to string, ignoring null bytes
                 result = "".join([chr(byte) for byte in data if byte != 0x00])
                 all_data.append(result)  # Append result to all_data
-            except Exception as e:
+            except IOError as e:
                 print(f"Error during the reading process : {e}")
 
         return all_data  # Return all read data
@@ -142,3 +142,4 @@ class EEPROM:
                     finally:
                         self._write_control.on()  # Disable writing
                         time.sleep(0.01)
+                        
