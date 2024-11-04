@@ -11,19 +11,44 @@ from .eeprom import EEPROM
 
 
 class Worker(threading.Thread):
-    
-    LABELS = ['eeprom_planktoscope_ref', 'acq_planktoscope_sn', 'acq_planktoscope_version', 'acq_planktoscope_date_factory', 
-              'acq_hat_sn', 'acq_hat_version', 'eeprom_driver_ref', 'eeprom_pump_ref', 
-              'eeprom_focus_ref', 'eeprom_obj_lens_ref', 'eeprom_tube_lens_ref',
-              'eeprom_flowcell_thickness', 'eeprom_led_ref']
-    START_ADDRESS = [0x0000, 0x000C, 0x0012, 0x0018, 0x0022, 0x002F, 0x0035, 0x0041, 0x004D, 0x0059, 0x0065, 0x0071, 0x007D]
+
+    LABELS = [
+        "eeprom_planktoscope_ref",
+        "acq_planktoscope_sn",
+        "acq_planktoscope_version",
+        "acq_planktoscope_date_factory",
+        "acq_hat_sn",
+        "acq_hat_version",
+        "eeprom_driver_ref",
+        "eeprom_pump_ref",
+        "eeprom_focus_ref",
+        "eeprom_obj_lens_ref",
+        "eeprom_tube_lens_ref",
+        "eeprom_flowcell_thickness",
+        "eeprom_led_ref",
+    ]
+    START_ADDRESS = [
+        0x0000,
+        0x000C,
+        0x0012,
+        0x0018,
+        0x0022,
+        0x002F,
+        0x0035,
+        0x0041,
+        0x004D,
+        0x0059,
+        0x0065,
+        0x0071,
+        0x007D,
+    ]
     DATA_LENGTHS = [12, 6, 6, 8, 10, 6, 12, 12, 12, 12, 12, 12, 12]
-    
+
     """Handles the operations of communicating between Node-RED and the EEPROM using MQTT."""
 
     def __init__(self):
         """Initialize the Worker for EEPROM operations."""
-        
+
         super().__init__(name="eeprom_worker")
 
         # Initialize EEPROM
@@ -31,15 +56,16 @@ class Worker(threading.Thread):
 
         # Event handling for threading
         self._stop_event = threading.Event()
-        
 
     @loguru.logger.catch
     def run(self) -> None:
         """Start the worker thread and run the main event loop for MQTT and EEPROM operations."""
         # Initialize MQTT client
         self._mqtt = mqtt.MQTT_Client(topic="eeprom/#", name="eeprom_client")
-        loguru.logger.info("Worker started. Waiting for incoming MQTT messages and handling EEPROM operations...")
-        
+        loguru.logger.info(
+            "Worker started. Waiting for incoming MQTT messages and handling EEPROM operations..."
+        )
+
         try:
             # Main event loop
             while not self._stop_event.is_set():
@@ -58,9 +84,8 @@ class Worker(threading.Thread):
         finally:
             loguru.logger.info("Stopping the MQTT API...")
             self.shutdown()
-            
- 
-    @loguru.logger.catch           
+
+    @loguru.logger.catch
     def _handle_new_message(self) -> None:
         """Handle a new message received over MQTT."""
         assert self._mqtt is not None
@@ -72,7 +97,7 @@ class Worker(threading.Thread):
             return
 
         latest_message = self._mqtt.msg["payload"]
-        hardware_info = latest_message.get("hardware_information", {}) 
+        hardware_info = latest_message.get("hardware_information", {})
         action = latest_message.get("action")  # Access action directly from latest_message
 
         self._mqtt.read_message()  # Clear the message after processing
@@ -81,15 +106,14 @@ class Worker(threading.Thread):
         loguru.logger.debug(f"Action received: {action}")
 
         # Process based on action type
-        if action == 'write_eeprom':
-            self._process_write(hardware_info) 
-        elif action == 'edit_eeprom':
+        if action == "write_eeprom":
+            self._process_write(hardware_info)
+        elif action == "edit_eeprom":
             self._process_edit(latest_message)
-        elif action == 'read_eeprom':
+        elif action == "read_eeprom":
             self._process_read()
         else:
             loguru.logger.error(f"Unknown action received: {action}")
-            
 
     def _process_write(self, message) -> None:
         """Processes the received MQTT message and writes it to EEPROM."""
@@ -109,21 +133,21 @@ class Worker(threading.Thread):
         except KeyError as e:
             loguru.logger.error(f"Error in processing message: {e}")
             self._mqtt.client.publish("status/eeprom", '{"status":"Processing error"}')
-            
-            
+
     def _process_edit(self, message) -> None:
         """Processes the received MQTT message, converts date format if necessary, and writes it to EEPROM."""
         try:
             data_received = message
 
             # Write the data to the EEPROM
-            self._eeprom._edit_eeprom(data_received, self.LABELS, self.START_ADDRESS, self.DATA_LENGTHS)
+            self._eeprom._edit_eeprom(
+                data_received, self.LABELS, self.START_ADDRESS, self.DATA_LENGTHS
+            )
             loguru.logger.success("Data edited successfully.")
             self._mqtt.client.publish("status/eeprom", '{"status":"Data updated"}')
         except Exception as e:
             loguru.logger.error(f"Unexpected error during message processing: {e}")
             self._mqtt.client.publish("status/eeprom", '{"status":"Processing error"}')
-            
 
     def _process_read(self) -> None:
         """Reads data from EEPROM and sends it to the MQTT topic."""
@@ -141,7 +165,6 @@ class Worker(threading.Thread):
         except Exception as e:
             loguru.logger.error(f"Failed to read EEPROM and send data: {e}")
             self._mqtt.client.publish("status/eeprom", '{"status":"Reading error"}')
-            
 
     def shutdown(self) -> None:
         """Stops the worker thread."""
@@ -149,21 +172,20 @@ class Worker(threading.Thread):
         self._stop_event.set()
         self._mqtt.shutdown()
         loguru.logger.success("Worker thread stopped.")
-        
 
     def _convert_date_format(self, data) -> None:
         """Converts the 'acq_planktoscope_date_factory' in the data received from 'YYYY/MM/DD' format to 'YYYYMMDD' format."""
-        
+
         # Parse the incoming date, which is in 'YYYY/MM/DD' format
-        date_obj = datetime.strptime(data['acq_planktoscope_date_factory'], '%Y/%m/%d')
-        
+        date_obj = datetime.strptime(data["acq_planktoscope_date_factory"], "%Y/%m/%d")
+
         # Format the date as 'YYYYMMDD'
-        formatted_date = date_obj.strftime('%Y%m%d')
-        
+        formatted_date = date_obj.strftime("%Y%m%d")
+
         # Update the data with the formatted date
-        data['acq_planktoscope_date_factory'] = formatted_date
+        data["acq_planktoscope_date_factory"] = formatted_date
         return data
-    
+
 
 # Thread creation in the global scope
 eeprom_worker = Worker()
