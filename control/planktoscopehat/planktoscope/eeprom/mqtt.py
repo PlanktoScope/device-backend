@@ -6,6 +6,7 @@ from datetime import datetime
 import loguru
 
 from planktoscope import mqtt
+
 from .eeprom import EEPROM
 
 
