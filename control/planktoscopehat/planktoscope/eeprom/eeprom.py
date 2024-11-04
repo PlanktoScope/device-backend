@@ -28,7 +28,7 @@ class EEPROM:
 
         for i, value in enumerate(values):
             current_addr = start_addr[i]  # Starting address for this data segment
-            data_to_write = [ord(char) for char in values[i]]  # Convert each character to ASCII
+            data_to_write = [ord(char) for char in value]  # Convert each character to ASCII
             remaining_data = data_to_write  # Data remaining to be written
 
             while remaining_data:
@@ -57,12 +57,12 @@ class EEPROM:
                     time.sleep(0.01)
 
     def read_data_eeprom(self, start_addr: list[int], data_lengths: list[int]) -> list[str]:
-        # Read data from EEPROM starting from specified addresses and for specified lengths
+        """Reads data from the EEPROM from specified starting addresses and lengths."""
         all_data: list[str] = []  # Container for the data read from EEPROM
 
-        for i in range(len(start_addr)):
-            mem_addr_high = (start_addr[i] >> 8) & 0xFF  # High byte of start address
-            mem_addr_low = start_addr[i] & 0xFF  # Low byte of start address
+        for i, start in start_addr:
+            mem_addr_high = (start >> 8) & 0xFF  # High byte of start address
+            mem_addr_low = start & 0xFF  # Low byte of start address
             length = data_lengths[i]  # Length of data to read for this segment
 
             try:
