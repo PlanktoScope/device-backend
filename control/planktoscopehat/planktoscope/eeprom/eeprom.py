@@ -1,4 +1,5 @@
 import time
+
 import smbus
 from gpiozero import OutputDevice
 
