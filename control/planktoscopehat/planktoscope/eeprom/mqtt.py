@@ -1,12 +1,14 @@
-from datetime import datetime
 import json
 import threading
 import time
+from datetime import datetime
 
 import loguru
 
 from planktoscope import mqtt
+
 from .eeprom import EEPROM
+
 
 class Worker(threading.Thread):
     

@@ -3,6 +3,7 @@ import time
 import smbus
 from gpiozero import OutputDevice
 
+
 class EEPROM:
     
     MAX_BLOCK_SIZE = 32  # Maximum number of bytes that can be written in one page on the EEPROM
