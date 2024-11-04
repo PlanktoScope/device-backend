@@ -6,10 +6,11 @@ It includes methods for writing, reading, and editing data on the EEPROM.
 import time
 
 import smbus  # type: ignore
-from gpiozero import OutputDevice  # type: ignore
+import gpiozero  # type: ignore
 
 
 class EEPROM:
+    """Class for interfacing with an EEPROM device using I2C."""
     MAX_BLOCK_SIZE: int = 32  # EEPROM page limit
 
     def __init__(self, eeprom_address: int = 0x50, i2c_bus: int = 0, gpio_pin: int = 4) -> None:
@@ -19,7 +20,7 @@ class EEPROM:
         self._gpio_pin: int = gpio_pin  # GPIO pin number for write control
         self._bus = smbus.SMBus(i2c_bus)  # Set up I2C bus
         # Set up GPIO for write control
-        self._write_control = OutputDevice(gpio_pin, active_high=True)
+        self._write_control = gpiozero.OutputDevice(gpio_pin, active_high=True)
 
     def write_on_eeprom(self, start_addr: list[int], data: dict[str, str]) -> None:
         # Write data to EEPROM starting from specified addresses
@@ -49,7 +50,7 @@ class EEPROM:
 
                     remaining_data = remaining_data[write_length:]  # Update remaining data
                     current_addr += write_length  # Update current address
-                except Exception as e:
+                except IOError as e:
                     print(f"Error during the writing process at address {current_addr:#04x}: {e}")
                 finally:
                     self._write_control.on()  # Disable writing
@@ -109,7 +110,7 @@ class EEPROM:
                         self._eeprom_address, (current_addr >> 8) & 0xFF, current_addr & 0xFF
                     )
                     time.sleep(0.01)
-                except Exception as e:
+                except IOError as e:
                     print(f"Error during the reading process at address {current_addr:#04x}: {e}")
                     continue
 
@@ -136,7 +137,7 @@ class EEPROM:
 
                         remaining_data = remaining_data[write_length:]  # Update remaining data
                         current_addr += write_length  # Move to next address
-                    except Exception as e:
+                    except IOError as e:
                         print(f"Error during the writing process: {e}")
                     finally:
                         self._write_control.on()  # Disable writing

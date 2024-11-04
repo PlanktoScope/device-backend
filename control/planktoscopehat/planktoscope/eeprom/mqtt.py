@@ -119,7 +119,7 @@ class Worker(threading.Thread):
             )
             loguru.logger.success("Data edited successfully.")
             self._mqtt.client.publish("status/eeprom", '{"status":"Data updated"}')
-        except Exception as e:
+        except IOError as e:
             loguru.logger.error(f"Unexpected error during message processing: {e}")
             self._mqtt.client.publish("status/eeprom", '{"status":"Processing error"}')
 
@@ -134,7 +134,7 @@ class Worker(threading.Thread):
                 f"Data sent to MQTT on topic hardware/read_eeprom: {data_to_send}"
             )
             self._mqtt.client.publish("status/eeprom", '{"status":"Data read"}')
-        except Exception as e:
+        except IOError as e:
             loguru.logger.error(f"Failed to read EEPROM and send data: {e}")
             self._mqtt.client.publish("status/eeprom", '{"status":"Reading error"}')
 
