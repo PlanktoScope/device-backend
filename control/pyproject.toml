@@ -84,10 +84,7 @@ spidev = [
   { version = "~3.5", source = "pypi", markers = "platform_machine != 'armv7l'" },
   { version = "~3.5", source = "piwheels", markers = "platform_machine == 'armv7l'" },
 ]
-gpiozero = [
-  { version = "~1.6.2", source = "pypi", markers = "platform_machine != 'armv7l'" },
-  { version = "~1.6.2", source = "piwheels", markers = "platform_machine == 'armv7l'" },
-]
+gpiozero = "~1.6.2"
 
 [tool.poetry.group.hw-dev]
 optional = true
