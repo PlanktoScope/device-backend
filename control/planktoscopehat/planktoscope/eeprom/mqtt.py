@@ -21,7 +21,7 @@ class Worker(threading.Thread):
     This class communicates between Node-RED and the EEPROM, allowing data to be
     written, edited, or read based on MQTT messages received.
     """
-    
+
     LABELS: list[str] = [
         "eeprom_planktoscope_ref",
         "acq_planktoscope_sn",
