@@ -84,9 +84,6 @@ class Worker(threading.Thread):
         # Ensure hardware_info is a dictionary, or set it to an empty dictionary if it’s not
         if not isinstance(hardware_info, dict):
             hardware_info = {}
-
-        # Cast hardware_info to Dict[str, str] to satisfy mypy
-        hardware_info = cast(Dict[str, str], hardware_info)
         
         action: Optional[str] = latest_message.get("action")
 
