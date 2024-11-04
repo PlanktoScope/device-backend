@@ -2,7 +2,7 @@ import json
 import threading
 import time
 from datetime import datetime
-from typing import cast, Dict, List, Optional
+from typing import Dict, List, Optional, cast
 
 import loguru
 
