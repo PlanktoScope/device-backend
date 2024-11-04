@@ -1,5 +1,5 @@
 import time
-from typing import List, Dict
+from typing import Dict, List
 
 import smbus  # type: ignore
 from gpiozero import OutputDevice  # type: ignore
