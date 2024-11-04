@@ -6,7 +6,7 @@ from datetime import datetime
 import loguru
 
 from planktoscope import mqtt
-from .eeprom import EEPROM
+from planktoscope.eeprom import eeprom
 
 
 class Worker(threading.Thread):
@@ -51,7 +51,7 @@ class Worker(threading.Thread):
         super().__init__(name="eeprom_worker")
 
         # Initialize EEPROM
-        self._eeprom = EEPROM()
+        self._eeprom = eeprom.EEPROM()
 
         # Event handling for threading
         self._stop_event = threading.Event()
