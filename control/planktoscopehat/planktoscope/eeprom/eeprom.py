@@ -122,8 +122,7 @@ class EEPROM:
                 while remaining_data:
                     page_boundary = self.MAX_BLOCK_SIZE - (current_addr % self.MAX_BLOCK_SIZE)
                     write_length = min(len(remaining_data), page_boundary)
-                    mem_addr_high = (current_addr >> 8) & 0xFF
-                    mem_addr_low = current_addr & 0xFF
+                    mem_addr_high, mem_addr_low = self._get_memory_address_bytes(current_addr)
 
                     self._write_control.off()  # Enable writing
                     try:
@@ -142,3 +141,9 @@ class EEPROM:
                     finally:
                         self._write_control.on()  # Disable writing
                         time.sleep(0.01)
+
+    def _get_memory_address_bytes(self, address: int) -> tuple[int, int]:
+        """Returns the high and low bytes of a 16-bit memory address."""
+        mem_addr_high = (address >> 8) & 0xFF  # High byte of the address
+        mem_addr_low = address & 0xFF  # Low byte of the address
+        return mem_addr_high, mem_addr_low
