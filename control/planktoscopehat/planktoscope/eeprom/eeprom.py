@@ -17,7 +17,7 @@ class EEPROM:
         # Set up GPIO for write control
         self._write_control = OutputDevice(gpio_pin, active_high=True)
 
-    def _write_on_eeprom(self, start_addr: List[int], data: Dict[str, str]) -> None:
+    def write_on_eeprom(self, start_addr: list[int], data: dict[str, str]) -> None:
         # Write data to EEPROM starting from specified addresses
         values = list(data.values())  # Convert data dictionary values into a list
 
@@ -51,7 +51,7 @@ class EEPROM:
                     self._write_control.on()  # Disable writing
                     time.sleep(0.01)
 
-    def _read_data_eeprom(self, start_addr: List[int], data_lengths: List[int]) -> List[str]:
+    def read_data_eeprom(self, start_addr: List[int], data_lengths: List[int]) -> List[str]:
         # Read data from EEPROM starting from specified addresses and for specified lengths
         all_data: List[str] = []  # Container for the data read from EEPROM
 
@@ -79,7 +79,7 @@ class EEPROM:
 
         return all_data  # Return all read data
 
-    def _edit_eeprom(
+    def edit_eeprom(
         self,
         data: Dict[str, str],
         labels: List[str],
