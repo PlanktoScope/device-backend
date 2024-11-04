@@ -48,7 +48,6 @@ class Worker(threading.Thread):
         super().__init__(name="eeprom_worker")
         self._eeprom = eeprom.EEPROM()
         self._stop_event = threading.Event()
-        self._mqtt: Optional[mqtt.MQTT_Client] = None
 
     @loguru.logger.catch
     def run(self) -> None:
@@ -105,7 +104,7 @@ class Worker(threading.Thread):
                 self._mqtt.client.publish("status/eeprom", '{"status":"Missing data error"}')
             else:
                 formatted_data = self._convert_date_format(data_received)
-                self._eeprom._write_on_eeprom(self.START_ADDRESS, formatted_data)
+                self._eeprom.write_on_eeprom(self.START_ADDRESS, formatted_data)
                 loguru.logger.success("Data written to EEPROM successfully.")
                 self._mqtt.client.publish("status/eeprom", '{"status":"Data written"}')
         except KeyError as e:
@@ -115,7 +114,7 @@ class Worker(threading.Thread):
     def _process_edit(self, message: dict[str, str]) -> None:
         """Processes the received MQTT message and writes it to EEPROM."""
         try:
-            self._eeprom._edit_eeprom(
+            self._eeprom.edit_eeprom(
                 message, self.LABELS, self.START_ADDRESS, self.DATA_LENGTHS
             )
             loguru.logger.success("Data edited successfully.")
@@ -127,7 +126,7 @@ class Worker(threading.Thread):
     def _process_read(self) -> None:
         """Reads data from EEPROM and sends it to the MQTT topic."""
         try:
-            values = self._eeprom._read_data_eeprom(self.START_ADDRESS, self.DATA_LENGTHS)
+            values = self._eeprom.read_data_eeprom(self.START_ADDRESS, self.DATA_LENGTHS)
             data_dict = dict(zip(self.LABELS, values))
             data_to_send = json.dumps(data_dict)
             self._mqtt.client.publish("eeprom/read_eeprom", data_to_send)
@@ -149,7 +148,7 @@ class Worker(threading.Thread):
     def _convert_date_format(self, data: dict[str, str]) -> dict[str, str]:
         """Converts the 'acq_planktoscope_date_factory' in the data received
         from 'YYYY/MM/DD' format to 'YYYYMMDD' format."""
-        date_obj = datetime.strptime(data["acq_planktoscope_date_factory"], "%Y/%m/%d")
+        date_obj = datetime.datetime.strptime(data["acq_planktoscope_date_factory"], "%Y/%m/%d")
         formatted_date = date_obj.strftime("%Y%m%d")
         data["acq_planktoscope_date_factory"] = formatted_date
         return data
