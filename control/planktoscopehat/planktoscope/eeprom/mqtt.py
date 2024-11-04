@@ -2,7 +2,7 @@ import json
 import threading
 import time
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import cast, Dict, List, Optional
 
 import loguru
 
@@ -79,10 +79,15 @@ class Worker(threading.Thread):
             return
 
         latest_message: Dict[str, str] = self._mqtt.msg["payload"]
-        hardware_info = latest_message.get("hardware_information", {})
+        
+        hardware_info: str | dict[str, str] = latest_message.get("hardware_information", {})
         # Ensure hardware_info is a dictionary, or set it to an empty dictionary if it’s not
         if not isinstance(hardware_info, dict):
             hardware_info = {}
+
+        # Cast hardware_info to Dict[str, str] to satisfy mypy
+        hardware_info = cast(Dict[str, str], hardware_info)
+        
         action: Optional[str] = latest_message.get("action")
 
         loguru.logger.debug(f"Action received: {action}")
