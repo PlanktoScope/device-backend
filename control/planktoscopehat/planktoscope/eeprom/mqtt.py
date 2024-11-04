@@ -121,7 +121,7 @@ class Worker(threading.Thread):
             self._mqtt.client.publish("eeprom/read_eeprom", data_to_send)
             loguru.logger.success(
                 f"Data sent to MQTT on topic hardware/read_eeprom: {data_to_send}"
-                )
+            )
             self._mqtt.client.publish("status/eeprom", '{"status":"Data read"}')
         except Exception as e:
             loguru.logger.error(f"Failed to read EEPROM and send data: {e}")

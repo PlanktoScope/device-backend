@@ -15,7 +15,7 @@ class EEPROM:
         self._gpio_pin: int = gpio_pin  # GPIO pin number for write control
         self._bus = smbus.SMBus(i2c_bus)  # Set up I2C bus
         # Set up GPIO for write control
-        self._write_control = OutputDevice(gpio_pin, active_high=True)  
+        self._write_control = OutputDevice(gpio_pin, active_high=True)
 
     def _write_on_eeprom(self, start_addr: List[int], data: Dict[str, str]) -> None:
         # Write data to EEPROM starting from specified addresses
@@ -27,7 +27,7 @@ class EEPROM:
             remaining_data = data_to_write  # Data remaining to be written
 
             while remaining_data:
-                # Ensure data doesn't exceed page boundaries 
+                # Ensure data doesn't exceed page boundaries
                 page_boundary = self.MAX_BLOCK_SIZE - (current_addr % self.MAX_BLOCK_SIZE)
                 write_length = min(len(remaining_data), page_boundary)
                 mem_addr_high = (current_addr >> 8) & 0xFF  # High byte of memory address
@@ -80,10 +80,10 @@ class EEPROM:
         return all_data  # Return all read data
 
     def _edit_eeprom(
-        self, 
-        data: Dict[str, str], 
-        labels: List[str], 
-        start_addr: List[int], 
+        self,
+        data: Dict[str, str],
+        labels: List[str],
+        start_addr: List[int],
         data_lengths: List[int]
     ) -> None:
         # Edit specific data in EEPROM based on labels, starting addresses, and lengths
@@ -137,4 +137,3 @@ class EEPROM:
                     finally:
                         self._write_control.on()  # Disable writing
                         time.sleep(0.01)
-                        
