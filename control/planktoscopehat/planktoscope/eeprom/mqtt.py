@@ -60,7 +60,7 @@ class Worker(threading.Thread):
 
         try:
             while not self._stop_event.is_set():
-                if self._mqtt.new_message_received():
+                if self._mqtt is not None and self._mqtt.new_message_received():
                     loguru.logger.info(f"Message received on MQTT: {self._mqtt.msg}")
                     self._handle_new_message()
                     self._mqtt.read_message()
@@ -72,7 +72,7 @@ class Worker(threading.Thread):
     @loguru.logger.catch
     def _handle_new_message(self) -> None:
         """Handle a new message received over MQTT."""
-        if self._mqtt.msg is None:
+        if self._mqtt is None or self._mqtt.msg is None:
             return
 
         if not self._mqtt.msg["topic"].startswith("eeprom/"):
@@ -98,6 +98,9 @@ class Worker(threading.Thread):
 
     def _process_write(self, message: dict[str, str]) -> None:
         """Processes the received MQTT message and writes it to EEPROM."""
+        if self._mqtt is None:
+            return
+
         try:
             data_received = {key: value for key, value in message.items() if key != "action"}
             if len(data_received) != 13:
@@ -114,6 +117,9 @@ class Worker(threading.Thread):
 
     def _process_edit(self, message: dict[str, str]) -> None:
         """Processes the received MQTT message and writes it to EEPROM."""
+        if self._mqtt is None:
+            return
+
         try:
             self._eeprom.edit_eeprom(
                 message, self.LABELS, self.START_ADDRESS, self.DATA_LENGTHS
@@ -126,6 +132,9 @@ class Worker(threading.Thread):
 
     def _process_read(self) -> None:
         """Reads data from EEPROM and sends it to the MQTT topic."""
+        if self._mqtt is None:
+            return
+
         try:
             values = self._eeprom.read_data_eeprom(self.START_ADDRESS, self.DATA_LENGTHS)
             data_dict = dict(zip(self.LABELS, values))
@@ -143,7 +152,8 @@ class Worker(threading.Thread):
         """Stops the worker thread."""
         loguru.logger.info("Shutting down worker thread...")
         self._stop_event.set()
-        self._mqtt.shutdown()
+        if self._mqtt is not None:
+            self._mqtt.shutdown()
         loguru.logger.success("Worker thread stopped.")
 
     def _convert_date_format(self, data: dict[str, str]) -> dict[str, str]:
