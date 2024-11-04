@@ -142,4 +142,3 @@ class EEPROM:
                     finally:
                         self._write_control.on()  # Disable writing
                         time.sleep(0.01)
-                        
