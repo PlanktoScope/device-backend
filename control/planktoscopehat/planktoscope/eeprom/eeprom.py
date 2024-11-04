@@ -60,7 +60,7 @@ class EEPROM:
         """Reads data from the EEPROM from specified starting addresses and lengths."""
         all_data: list[str] = []  # Container for the data read from EEPROM
 
-        for i, start in start_addr:
+        for i, start in enumerate(start_addr):
             mem_addr_high = (start >> 8) & 0xFF  # High byte of start address
             mem_addr_low = start & 0xFF  # Low byte of start address
             length = data_lengths[i]  # Length of data to read for this segment

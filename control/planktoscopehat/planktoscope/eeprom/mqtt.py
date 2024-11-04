@@ -48,7 +48,7 @@ class Worker(threading.Thread):
         super().__init__(name="eeprom_worker")
         self._eeprom = eeprom.EEPROM()
         self._stop_event = threading.Event()
-        self._mqtt = None
+        self._mqtt: Optional[mqtt.MQTT_Client] = None
 
     @loguru.logger.catch
     def run(self) -> None:
