@@ -5,8 +5,8 @@ It includes methods for writing, reading, and editing data on the EEPROM.
 
 import time
 
-import smbus  # type: ignore
 import gpiozero  # type: ignore
+import smbus  # type: ignore
 
 
 class EEPROM:
