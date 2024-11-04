@@ -101,7 +101,7 @@ class Worker(threading.Thread):
             self._mqtt.client.publish("status/eeprom", '{"status":"Processing error"}')
 
     def _process_edit(self, message: Dict[str, str]) -> None:
-        """Processes the received MQTT message, converts date format if necessary, and writes it to EEPROM."""
+        """Processes the received MQTT message and writes it to EEPROM."""
         try:
             self._eeprom._edit_eeprom(
                 message, self.LABELS, self.START_ADDRESS, self.DATA_LENGTHS
@@ -119,7 +119,9 @@ class Worker(threading.Thread):
             data_dict = dict(zip(self.LABELS, values))
             data_to_send = json.dumps(data_dict)
             self._mqtt.client.publish("eeprom/read_eeprom", data_to_send)
-            loguru.logger.success(f"Data sent to MQTT on topic hardware/read_eeprom: {data_to_send}")
+            loguru.logger.success(
+                f"Data sent to MQTT on topic hardware/read_eeprom: {data_to_send}"
+                )
             self._mqtt.client.publish("status/eeprom", '{"status":"Data read"}')
         except Exception as e:
             loguru.logger.error(f"Failed to read EEPROM and send data: {e}")
@@ -133,7 +135,8 @@ class Worker(threading.Thread):
         loguru.logger.success("Worker thread stopped.")
 
     def _convert_date_format(self, data: Dict[str, str]) -> Dict[str, str]:
-        """Converts the 'acq_planktoscope_date_factory' in the data received from 'YYYY/MM/DD' format to 'YYYYMMDD' format."""
+        """Converts the 'acq_planktoscope_date_factory' in the data received
+        from 'YYYY/MM/DD' format to 'YYYYMMDD' format."""
         date_obj = datetime.strptime(data["acq_planktoscope_date_factory"], "%Y/%m/%d")
         formatted_date = date_obj.strftime("%Y%m%d")
         data["acq_planktoscope_date_factory"] = formatted_date

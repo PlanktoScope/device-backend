@@ -6,7 +6,7 @@ from gpiozero import OutputDevice  # type: ignore
 
 
 class EEPROM:
-    MAX_BLOCK_SIZE: int = 32  # Maximum number of bytes that can be written in one page on the EEPROM
+    MAX_BLOCK_SIZE: int = 32  # EEPROM page limit
 
     def __init__(self, eeprom_address: int = 0x50, i2c_bus: int = 0, gpio_pin: int = 4) -> None:
         # Initialize EEPROM with specified I2C address, bus, and GPIO pin for write control
@@ -14,7 +14,8 @@ class EEPROM:
         self._i2c_bus: int = i2c_bus  # I2C bus number
         self._gpio_pin: int = gpio_pin  # GPIO pin number for write control
         self._bus = smbus.SMBus(i2c_bus)  # Set up I2C bus
-        self._write_control = OutputDevice(gpio_pin, active_high=True)  # Set up GPIO for write control
+        # Set up GPIO for write control
+        self._write_control = OutputDevice(gpio_pin, active_high=True)  
 
     def _write_on_eeprom(self, start_addr: List[int], data: Dict[str, str]) -> None:
         # Write data to EEPROM starting from specified addresses
@@ -26,7 +27,7 @@ class EEPROM:
             remaining_data = data_to_write  # Data remaining to be written
 
             while remaining_data:
-                # Ensure data doesn't cross page boundaries by limiting the write length to MAX_BLOCK_SIZE
+                # Ensure data doesn't exceed page boundaries 
                 page_boundary = self.MAX_BLOCK_SIZE - (current_addr % self.MAX_BLOCK_SIZE)
                 write_length = min(len(remaining_data), page_boundary)
                 mem_addr_high = (current_addr >> 8) & 0xFF  # High byte of memory address
@@ -74,12 +75,16 @@ class EEPROM:
                 result = "".join([chr(byte) for byte in data if byte != 0x00])
                 all_data.append(result)  # Append result to all_data
             except Exception as e:
-                print(f"Error during the reading process starting from address {start_addr[i]:#04x} : {e}")
+                print(f"Error during the reading process : {e}")
 
         return all_data  # Return all read data
 
     def _edit_eeprom(
-        self, data: Dict[str, str], labels: List[str], start_addr: List[int], data_lengths: List[int]
+        self, 
+        data: Dict[str, str], 
+        labels: List[str], 
+        start_addr: List[int], 
+        data_lengths: List[int]
     ) -> None:
         # Edit specific data in EEPROM based on labels, starting addresses, and lengths
         keys = list(data.keys())  # List of keys in data dictionary
@@ -106,7 +111,7 @@ class EEPROM:
 
                 # If new data is shorter than required length, pad with null bytes
                 if len(data_to_write) < data_length:
-                    data_to_write.extend([0x00] * (data_length - len(data_to_write)))  # Pad with 0x00
+                    data_to_write.extend([0x00] * (data_length - len(data_to_write)))
 
                 # Begin writing process, ensuring page boundaries are respected
                 while remaining_data:
@@ -128,7 +133,8 @@ class EEPROM:
                         remaining_data = remaining_data[write_length:]  # Update remaining data
                         current_addr += write_length  # Move to next address
                     except Exception as e:
-                        print(f"Error during the writing process at address {current_addr:#04x}: {e}")
+                        print(f"Error during the writing process: {e}")
                     finally:
                         self._write_control.on()  # Disable writing
                         time.sleep(0.01)
+                        
