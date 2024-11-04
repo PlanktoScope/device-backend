@@ -79,7 +79,7 @@ class Worker(threading.Thread):
             return
 
         latest_message: Dict[str, str] = self._mqtt.msg["payload"]
-        hardware_info: Dict[str, str] = latest_message.get("hardware_information", {})
+        hardware_info: str | dict[str, str] = latest_message.get("hardware_information", {})
         action: Optional[str] = latest_message.get("action")
 
         loguru.logger.debug(f"Action received: {action}")
