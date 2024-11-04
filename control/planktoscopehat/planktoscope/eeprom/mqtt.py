@@ -2,7 +2,7 @@ import json
 import threading
 import time
 from datetime import datetime
-from typing import Dict, List, Optional, cast
+from typing import Dict, List, Optional
 
 import loguru
 
@@ -27,19 +27,8 @@ class Worker(threading.Thread):
         "eeprom_led_ref",
     ]
     START_ADDRESS: List[int] = [
-        0x0000,
-        0x000C,
-        0x0012,
-        0x0018,
-        0x0022,
-        0x002F,
-        0x0035,
-        0x0041,
-        0x004D,
-        0x0059,
-        0x0065,
-        0x0071,
-        0x007D,
+        0x0000, 0x000C, 0x0012, 0x0018, 0x0022, 0x002F, 0x0035, 0x0041,
+        0x004D, 0x0059, 0x0065, 0x0071, 0x007D,
     ]
     DATA_LENGTHS: List[int] = [12, 6, 6, 8, 10, 6, 12, 12, 12, 12, 12, 12, 12]
 
@@ -79,14 +68,11 @@ class Worker(threading.Thread):
             return
 
         latest_message: Dict[str, str] = self._mqtt.msg["payload"]
-        
-        hardware_info: str | dict[str, str] = latest_message.get("hardware_information", {})
-        # Ensure hardware_info is a dictionary, or set it to an empty dictionary if it’s not
+        hardware_info: Dict[str, str] = latest_message.get("hardware_information", {})
         if not isinstance(hardware_info, dict):
             hardware_info = {}
-        
-        action: Optional[str] = latest_message.get("action")
 
+        action: Optional[str] = latest_message.get("action")
         loguru.logger.debug(f"Action received: {action}")
 
         if action == "write_eeprom":
@@ -133,7 +119,7 @@ class Worker(threading.Thread):
             data_dict = dict(zip(self.LABELS, values))
             data_to_send = json.dumps(data_dict)
             self._mqtt.client.publish("eeprom/read_eeprom", data_to_send)
-            loguru.logger.success(f"Data sent to MQTT on topic harware/read_eeprom: {data_to_send}")
+            loguru.logger.success(f"Data sent to MQTT on topic hardware/read_eeprom: {data_to_send}")
             self._mqtt.client.publish("status/eeprom", '{"status":"Data read"}')
         except Exception as e:
             loguru.logger.error(f"Failed to read EEPROM and send data: {e}")
