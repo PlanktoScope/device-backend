@@ -3,10 +3,10 @@ This module manages the MQTT communication for handling EEPROM operations,
 interfacing between Node-RED and EEPROM through a Worker class.
 """
 
+import datetime
 import json
 import threading
 import time
-import datetime
 from typing import Dict, List, Optional
 
 import loguru
