@@ -79,7 +79,7 @@ class Worker(threading.Thread):
             return
 
         latest_message: Dict[str, str] = self._mqtt.msg["payload"]
-        hardware_info: Dict[str, str] = latest_message.get("hardware_information", {})
+        hardware_info = latest_message.get("hardware_information", {})
         # Ensure hardware_info is a dictionary, or set it to an empty dictionary if it’s not
         if not isinstance(hardware_info, dict):
             hardware_info = {}
