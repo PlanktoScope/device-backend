@@ -12,8 +12,8 @@ import planktoscope.light # Fan HAT LEDs
 import planktoscope.identity
 import planktoscope.uuidName # Note: this is deprecated.
 import planktoscope.display # Fan HAT OLED screen
-from planktoscope.imagernew import mqtt as imagernew
 from planktoscope.eeprom import mqtt as eeprom
+from planktoscope.imagernew import mqtt as imagernew
 
 # enqueue=True is necessary so we can log accross modules
 # rotation happens everyday at 01:00 if not restarted
