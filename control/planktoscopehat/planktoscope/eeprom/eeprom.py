@@ -1,3 +1,8 @@
+"""
+This module defines the EEPROM class for interfacing with an EEPROM device using I2C.
+It includes methods for writing, reading, and editing data on the EEPROM.
+"""
+
 import time
 
 import smbus  # type: ignore
