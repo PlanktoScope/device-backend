@@ -1,5 +1,4 @@
 import time
-from typing import Dict, List
 
 import smbus  # type: ignore
 from gpiozero import OutputDevice  # type: ignore
@@ -51,9 +50,9 @@ class EEPROM:
                     self._write_control.on()  # Disable writing
                     time.sleep(0.01)
 
-    def read_data_eeprom(self, start_addr: List[int], data_lengths: List[int]) -> List[str]:
+    def read_data_eeprom(self, start_addr: list[int], data_lengths: list[int]) -> list[str]:
         # Read data from EEPROM starting from specified addresses and for specified lengths
-        all_data: List[str] = []  # Container for the data read from EEPROM
+        all_data: list[str] = []  # Container for the data read from EEPROM
 
         for i in range(len(start_addr)):
             mem_addr_high = (start_addr[i] >> 8) & 0xFF  # High byte of start address
@@ -65,7 +64,7 @@ class EEPROM:
                 self._bus.write_byte_data(self._eeprom_address, mem_addr_high, mem_addr_low)
                 time.sleep(0.01)
 
-                data: List[int] = []  # List to hold read bytes
+                data: list[int] = []  # List to hold read bytes
                 for _ in range(length):
                     byte = self._bus.read_byte(self._eeprom_address)  # Read each byte
                     data.append(byte)
@@ -81,10 +80,10 @@ class EEPROM:
 
     def edit_eeprom(
         self,
-        data: Dict[str, str],
-        labels: List[str],
-        start_addr: List[int],
-        data_lengths: List[int]
+        data: dict[str, str],
+        labels: list[str],
+        start_addr: list[int],
+        data_lengths: list[int]
     ) -> None:
         # Edit specific data in EEPROM based on labels, starting addresses, and lengths
         keys = list(data.keys())  # List of keys in data dictionary
