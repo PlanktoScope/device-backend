@@ -147,7 +147,7 @@ class EEPROM:
         mem_addr_low = address & 0xFF  # Low byte of the address
         return mem_addr_high, mem_addr_low
 
-    def _prepare_data(self, labels: list[str], key: str, data_lengths: list[int], data: dict[str, str]):
+    def _prepare_data(self, labels: list[str], key: str, data_lengths: list[int], data: dict[str, str]) -> list[int]:
         """
         Prepares the data for writing to the EEPROM by converting it to ASCII values 
         and padding it to match the expected length for the specified key.
