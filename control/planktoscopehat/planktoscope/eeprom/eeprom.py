@@ -103,7 +103,7 @@ class EEPROM:
 
         for _, key in enumerate(keys):
             if key in labels:
-                current_addr = start_addr[labels.index(key)]  # Find the index where key is in labels
+                current_addr = start_addr[labels.index(key)]
                 data_to_write = self._prepare_data(labels, key, data_lengths, data)
                 remaining_data = data_to_write
 
@@ -148,12 +148,12 @@ class EEPROM:
         return mem_addr_high, mem_addr_low
 
     def _prepare_data(
-        self, 
-        labels: list[str], 
-        key: str, 
-        data_lengths: list[int], 
+        self,
+        labels: list[str],
+        key: str,
+        data_lengths: list[int],
         data: dict[str, str]
-        ) -> list[int]:
+    ) -> list[int]:
         """
         Prepares the data for writing to the EEPROM by converting it to ASCII values
         and padding it to match the expected length for the specified key.
