@@ -103,7 +103,7 @@ class EEPROM:
 
         for _, key in enumerate(keys):
             if key in labels:
-                current_addr = start_addr[labels.index(key)] # Find the index where key is in labels
+                current_addr = start_addr[labels.index(key)]  # Find the index where key is in labels
                 data_to_write = self._prepare_data(labels, key, data_lengths, data)
                 remaining_data = data_to_write
 
@@ -147,9 +147,15 @@ class EEPROM:
         mem_addr_low = address & 0xFF  # Low byte of the address
         return mem_addr_high, mem_addr_low
 
-    def _prepare_data(self, labels: list[str], key: str, data_lengths: list[int], data: dict[str, str]) -> list[int]:
+    def _prepare_data(
+        self, 
+        labels: list[str], 
+        key: str, 
+        data_lengths: list[int], 
+        data: dict[str, str]
+        ) -> list[int]:
         """
-        Prepares the data for writing to the EEPROM by converting it to ASCII values 
+        Prepares the data for writing to the EEPROM by converting it to ASCII values
         and padding it to match the expected length for the specified key.
 
         Args:
@@ -159,22 +165,22 @@ class EEPROM:
             data (dict): The dictionary containing data values to be written to EEPROM.
 
         Returns:
-            list: A list of ASCII integer values ready for writing to the EEPROM, 
+            list: A list of ASCII integer values ready for writing to the EEPROM,
                 padded with 0x00 if shorter than the expected length.
         """
-        
+
         # Find the index of the key in labels to determine the correct data length
         label_index = labels.index(key)
         data_length = data_lengths[label_index]  # Expected data length for this label
-        
+
         # Convert the value associated with the key to a list of ASCII values
         value = data[key]
         data_to_write = [ord(char) for char in value]  # ASCII conversion for each character
         print(data_to_write)
-        
+
         # If data is shorter than expected, pad it with 0x00 to match the required length
         if len(data_to_write) < data_length:
             data_to_write.extend([0x00] * (data_length - len(data_to_write)))
-        
+
         # Return the list of ASCII values, padded as necessary
         return data_to_write
