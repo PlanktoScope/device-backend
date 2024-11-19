@@ -60,7 +60,7 @@ class i2c_led:
         self.UVLO = False
         self.flash_timeout = False
         self.IVFM = False
-        self.output_to_led1()
+        self.output_to_led()
         self.on = False
         try:
             self.force_reset()
@@ -78,7 +78,7 @@ class i2c_led:
             raise
         logger.debug(f"LED module id is {led_id}")
 
-    def output_to_led1(self):
+    def output_to_led(self):
         logger.debug("Switching output to LED 1")
         led.on()
 
@@ -173,42 +173,22 @@ class i2c_led:
 class pwm_led:
     def __init__(self, led, led0Pin, led1Pin, frequency):
         self.led = led
-        if self.led == 0:
-            self.pwm0 = PWMLED(led0Pin, frequency=frequency)
-            self.pwm0.value = 0 
-        elif self.led == 1:
-            self.pwm1 = PWMLED(led1Pin, frequency=frequency)
-            self.pwm1.value = 0
+        
+        self.pwm = PWMLED(led0Pin, frequency=frequency)
+        self.pwm.value = 0 
 
     def change_duty(self, dc):
-        if self.led == 0:
-            self.pwm0.ChangeDutyCycle(dc)
-        elif self.led == 1:
-            self.pwm1.ChangeDutyCycle(dc)
+        self.pwm.ChangeDutyCycle(dc)
 
     def off(self):
         led.off() 
-        # if self.led == 0:
-        #     logger.debug("Turning led 1 off")
-        #     led.off() 
-        # elif self.led == 1:
-        #     logger.debug("Turning led 2 off")
-        #     self.pwm1.ChangeDutyCycle(0)
 
     def on(self):
         led.on() 
-        # if self.led == 0:
-        #     logger.debug("Turning led 1 on")
-        #     self.pwm0.ChangeDutyCycle(100)
-        # elif self.led == 1:
-        #     logger.debug("Turning led 2 on")
-        #     self.pwm1.ChangeDutyCycle(100)
 
     def stop(self):
-        if self.led == 0:
-            self.pwm0.stop()
-        elif self.led == 1:
-            self.pwm1.stop()
+        self.pwm.stop()
+
 
 
 ################################################################################
@@ -232,12 +212,12 @@ class LightProcess(multiprocessing.Process):
         try:
             self.led = i2c_led()
             self.led.set_torch_current(self.led.DEFAULT_CURRENT)
-            self.led.output_to_led1()
+            self.led.output_to_led()
             self.led.activate_torch_ramp()
             self.led.activate_torch()
             time.sleep(0.5)
             self.led.deactivate_torch()
-            self.led.output_to_led1()
+            self.led.output_to_led()
         except Exception as e:
             logger.error(
                 f"We have encountered an error trying to start the LED module, stopping now, exception is {e}"
@@ -247,21 +227,15 @@ class LightProcess(multiprocessing.Process):
             logger.success("planktoscope.light is initialised and ready to go!")
 
     def led_off(self, led):
-        if led == 0:
-            logger.debug("Turning led 1 off")
-        elif led == 1:
-            logger.debug("Turning led 2 off")
+        logger.debug("Turning led 1 off")
         self.led.deactivate_torch()
 
     def led_on(self, led):
         if led not in [0, 1]:
             raise ValueError("Led number is wrong")
         if led == 0:
-            logger.debug("Turning led 1 on")
-            self.led.output_to_led1()
-        # elif led == 1:
-        #     logger.debug("Turning led 2 on")
-        #     self.led.output_to_led2()
+            logger.debug("Turning led on")
+            self.led.output_to_led()
         self.led.activate_torch()
 
     @logger.catch
@@ -286,37 +260,17 @@ class LightProcess(multiprocessing.Process):
                 if last_message["action"] == "on":
                     # {"action":"on", "led":"1"}
                     logger.info("Turning the light on.")
-                    if "led" not in last_message or last_message["led"] == 1:
-                        self.led_on(0)
-                        self.light_client.client.publish(
-                            "status/light", '{"status":"Led 1: On"}'
-                        )
-                    elif last_message["led"] == 2:
-                        self.led_on(1)
-                        self.light_client.client.publish(
-                            "status/light", '{"status":"Led 2: On"}'
-                        )
-                    else:
-                        self.light_client.client.publish(
-                            "status/light", '{"status":"Error with led number"}'
-                        )
+                    self.led_on(0)
+                    self.light_client.client.publish(
+                        "status/light", '{"status":"Led 1: On"}'
+                    )
                 elif last_message["action"] == "off":
                     # {"action":"off", "led":"1"}
                     logger.info("Turn the light off.")
-                    if "led" not in last_message or last_message["led"] == 1:
-                        self.led_off(0)
-                        self.light_client.client.publish(
-                            "status/light", '{"status":"Led 1: Off"}'
-                        )
-                    elif last_message["led"] == 2:
-                        self.led_off(1)
-                        self.light_client.client.publish(
-                            "status/light", '{"status":"Led 2: Off"}'
-                        )
-                    else:
-                        self.light_client.client.publish(
-                            "status/light", '{"status":"Error with led number"}'
-                        )
+                    self.led_off(0)
+                    self.light_client.client.publish(
+                        "status/light", '{"status":"Led 1: Off"}'
+                    )
                 else:
                     logger.warning(
                         f"We did not understand the received request {action} - {last_message}"
@@ -392,7 +346,7 @@ class LightProcess(multiprocessing.Process):
 if __name__ == "__main__":
     led = i2c_led()
     led.set_torch_current(30)
-    led.output_to_led1()
+    led.output_to_led()
     led.activate_torch_ramp()
     led.activate_torch()
     time.sleep(5)

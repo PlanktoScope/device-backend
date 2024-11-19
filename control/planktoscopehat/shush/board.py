@@ -42,11 +42,3 @@ class Board:
         Board.spi1.loop = False
         Board.spi1.mode = 3
 
-    # def __del__(self):
-    #     # Cleanup for DigitalOutputDevice and DigitalInputDevice pins
-    #     self.m0_cs.close()
-    #     self.m1_cs.close()
-    #     self.error.close()
-    #     self.stall.close()
-    #     self.m0_enable.close()
-    #     self.m1_enable.close()
