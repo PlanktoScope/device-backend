@@ -56,7 +56,7 @@ class ImagerProcess(multiprocessing.Process):
         self.stop_event = stop_event
         self.__imager = planktoscope.imager.state_machine.Imager()
         self.__img_goal = 0
-        self.__img_done = 0
+        self.__img_done = 0 # Initialize image count variable
         self.__sleep_before = None
         self.__pump_volume = None
         self.__pump_direction = "FORWARD"
@@ -722,7 +722,6 @@ class ImagerProcess(multiprocessing.Process):
         server.shutdown()
         logger.debug("Stopping MQTT")
         self.imager_client.shutdown()
-        # self.streaming_thread.kill()
         logger.success("Imager process shut down! See you!")
 
 
