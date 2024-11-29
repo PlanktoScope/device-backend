@@ -30,7 +30,7 @@ class _StreamingHandler(server.BaseHTTPRequestHandler):
         server_: socketserver.BaseServer,
     ) -> None:
         self.latest_frame = latest_frame
-        self._max_framerate = 15  # fps
+        self._max_framerate = 25  # fps
         super().__init__(request, client_address, server_)
 
     @loguru.logger.catch

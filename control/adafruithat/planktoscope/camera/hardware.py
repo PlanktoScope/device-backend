@@ -220,12 +220,12 @@ class PiCamera:
         self,
         preview_output: io.BufferedIOBase,
         stream_config: StreamConfig = StreamConfig(
-            preview_size=(960, 720),
+            preview_size=(800, 600),
             # Note(ethanjli): a bitrate of 80 Mbps in practice results in ~8 Mbps of bandwidth per
             # stream, both for Ethernet and for the Wi-Fi hotspot. A bitrate of 20 Mbps results in
             # ~7 Mbps of bandwidth per stream. A bitrate of 15 Mbps results in noticeable JPEG
             # compression artifacts, and ~5 Mbps of bandwidth per stream.
-            preview_bitrate=20 * 1000000,
+            preview_bitrate=25 * 1000000,
             buffer_count=3,
         ),
         # Note(ethanjli): mqtt.Worker's constructor explicitly overrides any defaults we set here -
