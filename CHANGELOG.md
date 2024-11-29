@@ -8,8 +8,11 @@ All dates in this file are given in the [UTC time zone](https://en.wikipedia.org
 
 ## Unreleased
 
+### Changed
+
+- (Hardware controller) The resolution of the camera preview stream has been reduced from 960x720 to 800x600 in an attempt to mitigate hard-to-reproduce preview stream latency problems.
 - (Hardware controller) The bitrate of the camera preview stream has been reduced slightly from ~8 Mbps to ~7 Mbps.
-- (Hardware controller) The framerate of the camera preview stream is now explicitly limited to 15 fps.
+- (Hardware controller) The framerate of the camera preview stream is now explicitly limited to 25 fps.
 
 ## v2024.0.0-beta.2 - 2024-08-19
 
