@@ -4,17 +4,29 @@ on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+-beta.*'
-      # We want to advance the beta to the latest stable release, too:
+      # We want to advance the beta branch to the latest stable release, too:
       - 'v[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
   ff-branch:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
     permissions:
       contents: write
     steps:
+      - uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.ref }}
+          check-name: 'ci'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+
+      - uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.ref }}
+          check-name: 'merge'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
