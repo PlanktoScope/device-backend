@@ -28,10 +28,9 @@ class _StreamingHandler(server.BaseHTTPRequestHandler):
         request: typing.Union[socket.socket, tuple[bytes, socket.socket]],
         client_address: tuple[str, int],
         server_: socketserver.BaseServer,
-        max_framerate: typing.Optional[int] = 15,  # fps
     ) -> None:
         self.latest_frame = latest_frame
-        self._max_framerate = max_framerate
+        self._max_framerate = 15  # fps
         super().__init__(request, client_address, server_)
 
     @loguru.logger.catch
@@ -58,7 +57,7 @@ class _StreamingHandler(server.BaseHTTPRequestHandler):
             client_id = time.time()
             loguru.logger.info(f"Added streaming client {client_id}.")
             try:
-                self._send_frames(client_id)
+                self._send_frames()
             except BrokenPipeError:
                 loguru.logger.info(f"Removed streaming client {client_id}.")
             return
@@ -66,7 +65,7 @@ class _StreamingHandler(server.BaseHTTPRequestHandler):
         self.send_error(404)
         self.end_headers()
 
-    def _send_frames(self, client_id: float) -> None:
+    def _send_frames(self) -> None:
         """Send frames as they become available."""
         min_interval = 0.0
         if self._max_framerate is not None:

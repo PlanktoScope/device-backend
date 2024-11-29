@@ -481,6 +481,8 @@ class PreviewStream(io.BufferedIOBase):
 
     def get(self) -> typing.Optional[bytes]:
         """Return a copy of the latest buffer in the stream."""
+        if self._latest_buffer is None:
+            return None
         with self._latest_buffer_lock.gen_rlock():
             b = self._latest_buffer[:]
         return b
