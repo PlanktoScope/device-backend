@@ -12,6 +12,7 @@ import planktoscope.light # Fan HAT LEDs
 import planktoscope.identity
 import planktoscope.uuidName # Note: this is deprecated.
 import planktoscope.display # Fan HAT OLED screen
+from planktoscope.eeprom import mqtt as eeprom
 from planktoscope.imagernew import mqtt as imagernew
 
 # enqueue=True is necessary so we can log accross modules
@@ -49,7 +50,7 @@ def handler_stop_signals(signum, frame):
 
 if __name__ == "__main__":
     logger.info("Welcome!")
-    logger.info("Initialising signals handling and sanitizing the directories (step 1/5)")
+    logger.info("Initialising signals handling and sanitizing the directories (step 1/6)")
     signal.signal(signal.SIGINT, handler_stop_signals)
     signal.signal(signal.SIGTERM, handler_stop_signals)
 
@@ -88,13 +89,13 @@ if __name__ == "__main__":
     shutdown_event.clear()
 
     # Starts the stepper process for actuators
-    logger.info("Starting the stepper control process (step 2/5)")
+    logger.info("Starting the stepper control process (step 2/6)")
     stepper_thread = planktoscope.stepper.StepperProcess(shutdown_event)
     stepper_thread.start()
 
     # TODO try to isolate the imager thread (or another thread)
     # Starts the imager control process
-    logger.info("Starting the imager control process (step 3/5)")
+    logger.info("Starting the imager control process (step 3/6)")
     try:
         imager_thread = imagernew.Worker(shutdown_event)
     except Exception as e:
@@ -104,7 +105,7 @@ if __name__ == "__main__":
         imager_thread.start()
 
     # Starts the light process
-    logger.info("Starting the light control process (step 4/5)")
+    logger.info("Starting the light control process (step 4/6)")
     try:
         light_thread = planktoscope.light.LightProcess(shutdown_event)
     except Exception as e:
@@ -112,8 +113,13 @@ if __name__ == "__main__":
         light_thread = None
     else:
         light_thread.start()
+        
+    # Start the EEPROM control process
+    logger.info("Starting the EEPROM worker (step 5/6)")
+    eeprom_worker = eeprom.Worker() 
+    eeprom_worker.start()  
 
-    logger.info("Starting the display control (step 5/5)")
+    logger.info("Starting the display control (step 6/6)")
     display = planktoscope.display.Display()
 
     logger.success("Looks like everything is set up and running, have fun!")
@@ -145,6 +151,9 @@ if __name__ == "__main__":
         imager_thread.close()
     if light_thread:
         light_thread.close()
+        
+    eeprom_worker.shutdown() 
+    eeprom_worker.join()
 
     display.stop()
 
