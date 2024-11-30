@@ -6,10 +6,12 @@ import os
 
 from loguru import logger
 
+import planktoscope.focus
 import planktoscope.mqtt
-import planktoscope.stepper
+
 import planktoscope.light # Fan HAT LEDs
 import planktoscope.identity
+import planktoscope.pump
 import planktoscope.uuidName # Note: this is deprecated.
 import planktoscope.display # Fan HAT OLED screen
 from planktoscope.imagernew import mqtt as imagernew
@@ -87,10 +89,15 @@ if __name__ == "__main__":
     shutdown_event = multiprocessing.Event()
     shutdown_event.clear()
 
-    # Starts the stepper process for actuators
-    logger.info("Starting the stepper control process (step 2/5)")
-    stepper_thread = planktoscope.stepper.StepperProcess(shutdown_event)
-    stepper_thread.start()
+    # Starts the focus process for actuators
+    logger.info("Starting the focus control process (step 2/5)")
+    focus_thread = planktoscope.focus.FocusProcess(shutdown_event)
+    focus_thread.start()
+
+    # Starts the pump process for actuators
+    logger.info("Starting the focus control process (step 2/5)")
+    pump_thread = planktoscope.pump.PumpProcess(shutdown_event)
+    pump_thread.start()
 
     # TODO try to isolate the imager thread (or another thread)
     # Starts the imager control process
@@ -118,29 +125,43 @@ if __name__ == "__main__":
 
     logger.success("Looks like everything is set up and running, have fun!")
 
+    # With the creation of this dictionary to keep track of running threads, we can easily
+    running_threads = {
+        "pump": pump_thread,
+        "focus": focus_thread,
+        "light": light_thread,
+        "imager": imager_thread  
+    }
+
     while run:
         # TODO look into ways of restarting the dead threads
         logger.trace("Running around in circles while waiting for someone to die!")
-        if not stepper_thread.is_alive():
-            logger.error("The stepper process died unexpectedly! Oh no!")
-            break
-        if not imager_thread or not imager_thread.is_alive():
-            logger.error("The imager process died unexpectedly! Oh no!")
+        # Check if any threads have terminated unexpectedly and log the error without exiting
+        for thread_name, thread in running_threads.items():
+            if not thread or not thread.is_alive():
+                logger.error(f"The {thread_name} process terminated unexpectedly!")
+                del running_threads[thread_name]  # Remove the dead thread from the dictionary
+        # Check if all threads have terminated so we can exit the program 
+        if not running_threads: #checks if there is no running thread left 
+            logger.error("All processes terminated unexpectedly! Exiting...")
             break
         time.sleep(1)
+
 
     display.display_text("Bye Bye!")
     logger.info("Shutting down the shop")
     shutdown_event.set()
     time.sleep(1)
 
-    stepper_thread.join()
+    focus_thread.join()
+    pump_thread.join()
     if imager_thread:
         imager_thread.join()
     if light_thread:
         light_thread.join()
 
-    stepper_thread.close()
+    focus_thread.close()
+    pump_thread.close()
     if imager_thread:
         imager_thread.close()
     if light_thread:
