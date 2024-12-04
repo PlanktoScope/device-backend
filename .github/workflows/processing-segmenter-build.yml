@@ -9,6 +9,9 @@ on:
     tags:
       - 'v*'
   pull_request:
+    paths:
+      - 'processing/segmenter/**'
+      - '.github/workflows/processing-segmenter-*.yml'
   merge_group:
   workflow_dispatch:
     inputs:
