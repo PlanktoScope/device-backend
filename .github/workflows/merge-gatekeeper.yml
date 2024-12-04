@@ -27,4 +27,4 @@ jobs:
           ref: ${{github.ref}}
           token: ${{ secrets.GITHUB_TOKEN }}
           timeout: 600 # 10-minute timeout, since ARM v7 container builds may take ~5 minutes to run
-          interval: 30
+          interval: 15
