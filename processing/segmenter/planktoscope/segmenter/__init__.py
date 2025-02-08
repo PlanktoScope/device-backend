@@ -175,7 +175,7 @@ class SegmenterProcess(multiprocessing.Process):
             )
             images_number = len(images_list)
 
-        logger.debug(f"Opening {images_number} images: {images_list:images_number}")
+        logger.debug(f"Opening {images_number} images: {images_list[:images_number]}")
         # start = time.monotonic()
         # Read images and build array
         images_array = np.array(
