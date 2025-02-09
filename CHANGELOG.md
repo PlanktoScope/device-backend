@@ -6,13 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project uses [Calendar Versioning](https://calver.org/) with a `YYYY.minor.patch` scheme.
 All dates in this file are given in the [UTC time zone](https://en.wikipedia.org/wiki/Coordinated_Universal_Time).
 
-## Unreleased
+## v2024.0.0 - 2024-12-25
+
+### Fixed
+
+- (Segmenter) The segmenter now correctly sets the `img_rank` metadata field of the EcoTaxa export to `1`, instead of setting it to an incrementing index which makes exports un-importable by EcoTaxa for datasets with more than ~32,000 objects.
+
+## v2024.0.0-beta.3 - 2024-11-30
 
 ### Changed
 
 - (Hardware controller) The resolution of the camera preview stream has been reduced from 960x720 to 800x600 in an attempt to mitigate hard-to-reproduce preview stream latency problems.
 - (Hardware controller) The bitrate of the camera preview stream has been reduced slightly from ~8 Mbps to ~7 Mbps.
 - (Hardware controller) The framerate of the camera preview stream is now explicitly limited to 25 fps.
+
+### Fixed
+
+- (Breaking change; segmenter) The previously incorrect method for filtering segmented objects by size has now been corrected to filter object sizes by filled area rather than bounding box area, and directly using the mesh size as the threshold for equivalent spherical diameter (ESD) instead of calculating a fictional ESD.
 
 ## v2024.0.0-beta.2 - 2024-08-19
 
