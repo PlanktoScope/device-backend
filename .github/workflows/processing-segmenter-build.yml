@@ -41,7 +41,7 @@ jobs:
             gha-runner: ubuntu-24.04
           - docker-platform: linux/arm64
             gha-runner: ubuntu-24.04-arm
-    runs-on: {{ matrix.gha-runner }}
+    runs-on: ${{ matrix.gha-runner }}
     steps:
       - uses: actions/checkout@v4
 
