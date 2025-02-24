@@ -10,6 +10,7 @@ All dates in this file are given in the [UTC time zone](https://en.wikipedia.org
 
 ### Removed
 
+- (Hardware controller) The old raspimjpeg-based imager has been fully deleted, having been deprecated in v2024.0.0-alpha.2.
 - Support for deployment on ARMv7 (32-bit OSes) is removed, having been deprecated in PlanktoScope OS v2024.0.0-beta.0.
 
 ### Fixed
