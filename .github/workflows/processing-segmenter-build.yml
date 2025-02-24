@@ -36,12 +36,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform:
-          - docker: linux/amd64
+        include:
+          - docker-platform: linux/amd64
             gha-runner: ubuntu-24.04
-          - docker: linux/arm64
+          - docker-platform: linux/arm64
             gha-runner: ubuntu-24.04-arm
-    runs-on: {{ matrix.platform.gha-runner }}
+    runs-on: {{ matrix.gha-runner }}
     steps:
       - uses: actions/checkout@v4
 
@@ -79,10 +79,10 @@ jobs:
         with:
           context: ./processing/segmenter
           pull: true
-          platforms: ${{ matrix.platform.docker }}
+          platforms: ${{ matrix.docker-platform }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=processing-segmenter-build-${{ matrix.platform.docker }}
-          cache-to: type=gha,mode=max,scope=processing-segmenter-build-${{ matrix.platform.docker }}
+          cache-from: type=gha,scope=processing-segmenter-build-${{ matrix.docker-platform }}
+          cache-to: type=gha,mode=max,scope=processing-segmenter-build-${{ matrix.docker-platform }}
           outputs: type=image,name=${{ steps.image_registry_case.outputs.lowercase }},push-by-digest=true,name-canonical=true,push=${{ env.PUSH_IMAGE }}
 
       - name: Export digest
@@ -93,7 +93,7 @@ jobs:
 
       - name: Determine digest name
         run: |
-          platform=${{ matrix.platform.docker }}
+          platform=${{ matrix.docker-platform }}
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
 
       - name: Upload digest
