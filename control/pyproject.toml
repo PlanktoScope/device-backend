@@ -44,9 +44,7 @@ adafruit-circuitpython-motorkit = "~1.6.3"
 adafruit-circuitpython-motor = "~3.3.1"
 adafruit-ssd1306 = "~1.6.2"
 adafruit-platformdetect = "~3.45.2"
-picamerax = "~21.9.8"
 smbus2 = "~0.4.1"
-picamera = "~1.13"
 # Note: the following packages are only indirect dependencies, but we need to download wheels from
 # the appropriate sources, so we must explicitly select them here
 rpi-ws281x = "~5.0.0"

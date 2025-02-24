@@ -330,24 +330,6 @@ files = [
 ]
 
 [[package]]
-name = "colorzero"
-version = "2.0"
-description = "Yet another Python color library"
-optional = false
-python-versions = "*"
-files = [
-    {file = "colorzero-2.0-py2.py3-none-any.whl", hash = "sha256:0e60d743a6b8071498a56465f7719c96a5e92928f858bab1be2a0d606c9aa0f8"},
-    {file = "colorzero-2.0.tar.gz", hash = "sha256:e7d5a5c26cd0dc37b164ebefc609f388de24f8593b659191e12d85f8f9d5eb58"},
-]
-
-[package.dependencies]
-setuptools = "*"
-
-[package.extras]
-doc = ["pkginfo", "sphinx", "sphinx-rtd-theme"]
-test = ["pytest", "pytest-cov"]
-
-[[package]]
 name = "dill"
 version = "0.3.8"
 description = "serialize all of Python"
@@ -621,21 +603,6 @@ files = [
 ]
 
 [[package]]
-name = "picamera"
-version = "1.13"
-description = "A pure Python interface for the Raspberry Pi camera module."
-optional = false
-python-versions = "*"
-files = [
-    {file = "picamera-1.13.tar.gz", hash = "sha256:890815aa01e4d855a6a95dd3ad0953b872a6b954982106407df0c5a31a163e50"},
-]
-
-[package.extras]
-array = ["numpy"]
-doc = ["sphinx"]
-test = ["Pillow", "coverage", "mock", "numpy", "pytest"]
-
-[[package]]
 name = "picamera2"
 version = "0.3.12"
 description = "The libcamera-based Python interface to Raspberry Pi cameras, based on the original Picamera library"
@@ -657,25 +624,6 @@ v4l2-python3 = "*"
 
 [package.extras]
 gui = ["PyQt5", "pyopengl"]
-
-[[package]]
-name = "picamerax"
-version = "21.9.8"
-description = "A pure Python interface for the Raspberry Pi camera module, with extra features and fixes."
-optional = false
-python-versions = "*"
-files = [
-    {file = "picamerax-21.9.8-py3-none-any.whl", hash = "sha256:e78fe1317be452d3b2a489a3dd055742559e7b78351efae9b64fcc5fc609c8e9"},
-    {file = "picamerax-21.9.8.tar.gz", hash = "sha256:07090daf6fc6d887f8d82afae1220be008de3f1043c4e193f1d061bcb26afbe3"},
-]
-
-[package.dependencies]
-colorzero = "*"
-
-[package.extras]
-array = ["numpy"]
-doc = ["sphinx"]
-test = ["Pillow", "coverage", "mock", "numpy", "pytest"]
 
 [[package]]
 name = "pidng"
@@ -1037,22 +985,6 @@ files = [
 ]
 
 [[package]]
-name = "setuptools"
-version = "69.2.0"
-description = "Easily download, build, install, upgrade, and uninstall Python packages"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "setuptools-69.2.0-py3-none-any.whl", hash = "sha256:c21c49fb1042386df081cb5d86759792ab89efca84cf114889191cd09aacc80c"},
-    {file = "setuptools-69.2.0.tar.gz", hash = "sha256:0ff4183f8f42cd8fa3acea16c45205521a4ef28f73c6391d8a25e92893134f2e"},
-]
-
-[package.extras]
-docs = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "pygments-github-lexers (==0.0.5)", "rst.linker (>=1.9)", "sphinx (<7.2.5)", "sphinx (>=3.5)", "sphinx-favicon", "sphinx-inline-tabs", "sphinx-lint", "sphinx-notfound-page (>=1,<2)", "sphinx-reredirects", "sphinxcontrib-towncrier"]
-testing = ["build[virtualenv]", "filelock (>=3.4.0)", "importlib-metadata", "ini2toml[lite] (>=0.9)", "jaraco.develop (>=7.21)", "jaraco.envs (>=2.2)", "jaraco.path (>=3.2.0)", "mypy (==1.9)", "packaging (>=23.2)", "pip (>=19.1)", "pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-home (>=0.5)", "pytest-mypy (>=0.9.1)", "pytest-perf", "pytest-ruff (>=0.2.1)", "pytest-timeout", "pytest-xdist (>=3)", "tomli", "tomli-w (>=1.0.0)", "virtualenv (>=13.0.0)", "wheel"]
-testing-integration = ["build[virtualenv] (>=1.0.3)", "filelock (>=3.4.0)", "jaraco.envs (>=2.2)", "jaraco.path (>=3.2.0)", "packaging (>=23.2)", "pytest", "pytest-enabler", "pytest-xdist", "tomli", "virtualenv (>=13.0.0)", "wheel"]
-
-[[package]]
 name = "simplejpeg"
 version = "1.6.6"
 description = "A simple package for fast JPEG encoding and decoding."
@@ -1272,4 +1204,4 @@ dev = ["black (>=19.3b0)", "pytest (>=4.6.2)"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9.2"
-content-hash = "ec6febecc0303bfc417523077f44837cecda2083ccff362bd586bf4939a170ee"
+content-hash = "5e8d3bbf28b4f6655ddeb91e34c3fb07ce65d6c7d7a75d82fd01938688837d33"
