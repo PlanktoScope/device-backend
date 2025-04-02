@@ -23,7 +23,7 @@ Currently the hardware controller can only be deployed as part of the distro set
 
 To install all dependencies including development tooling, run:
 ```
-poetry install --with dev,hw-dev --no-root
+poetry install --with dev --no-root
 ```
 
 Then you can run the code auto-formatter on the project by running:

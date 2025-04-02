@@ -45,29 +45,7 @@ adafruit-circuitpython-motor = "~3.3.1"
 adafruit-ssd1306 = "~1.6.2"
 adafruit-platformdetect = "~3.45.2"
 smbus2 = "~0.4.1"
-# Note: the following packages are only indirect dependencies, but we need to download wheels from
-# the appropriate sources, so we must explicitly select them here
-rpi-ws281x = "~5.0.0"
-sysv-ipc = "~1.1.0"
-spidev = "~3.5"
-
-[tool.poetry.group.hw-dev]
-optional = true
-
-# Note: the following packages are only indirect dependencies of picamera2, and on the RPi we use
-# the system's installation of them (managed by apt-get) because poetry tries to build them from
-# source instead of installing the armv7l wheels. Maybe poetry is messing up at detecting the
-# machine platform or something.
-[tool.poetry.group.hw-dev.dependencies]
-# v1.19.5 (the version from the RPi on bullseye) fails to install in GitHub Actions, so we just use
-# the latest version and hope that the differences won't be significant enough to cause a mismatch
-# between CI and the production environment (i.e. the RPi):
-picamera2 = "==0.3.12"
-numpy = "~1.26.4"
-pidng = "~4.0.9"
-simplejpeg = "~1.6.4"
-pillow = "~10.2.0"
-av = "~10.0.0"
+picamera2 = "~0.3.25"
 
 [tool.poetry.group.dev]
 optional = true
