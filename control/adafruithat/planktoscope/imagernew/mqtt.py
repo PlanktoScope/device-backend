@@ -190,7 +190,7 @@ class Worker(multiprocessing.Process):
         assert (capture_size := self._camera.camera.stream_config.capture_size) is not None
         camera_settings = self._camera.camera.settings
         assert (image_gain := camera_settings.image_gain) is not None
-        calibration = camera.ISO_CALIBRATIONS.get(self._camera._camera.sensor_name, 100)
+        calibration = camera.ISO_CALIBRATIONS.get(self._camera.camera.sensor_name, 100)
         machine_name = identity.load_machine_name()
         metadata = {
             **self._metadata,
