@@ -33,7 +33,7 @@ class ModuleProcess(multiprocessing.Process):
 
         # Do all your initialisation here
 
-        logger.success("planktoscope.mdule is initialised and ready to go!")
+        logger.success("planktoscope.module is initialised and ready to go!")
 
     @logger.catch
     def treat_message(self):
