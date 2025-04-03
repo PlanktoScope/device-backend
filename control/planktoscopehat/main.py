@@ -8,14 +8,17 @@ from loguru import logger
 
 import planktoscope.mqtt
 import planktoscope.stepper
-import planktoscope.light # Fan HAT LEDs
+import planktoscope.light  # Fan HAT LEDs
 import planktoscope.identity
-import planktoscope.uuidName # Note: this is deprecated.
-import planktoscope.display # Fan HAT OLED screen
-from planktoscope.imagernew import mqtt as imagernew
+import planktoscope.uuidName  # Note: this is deprecated.
+import planktoscope.display  # Fan HAT OLED screen
+from planktoscope.imager import mqtt as imager
 
-# enqueue=True is necessary so we can log accross modules
+# enqueue=True is necessary so we can log across modules
 # rotation happens everyday at 01:00 if not restarted
+logs_path = "/home/pi/device-backend-logs/control"
+if not os.path.exists(logs_path):
+    os.makedirs(logs_path)
 logger.add(
     # sys.stdout,
     "/home/pi/device-backend-logs/control/{time}.log",
@@ -40,6 +43,7 @@ logger.info("Starting the PlanktoScope python script!")
 
 run = True  # global variable to enable clean shutdown from stop signals
 
+
 def handler_stop_signals(signum, frame):
     """This handler simply stop the forever running loop in __main__"""
     global run
@@ -49,7 +53,9 @@ def handler_stop_signals(signum, frame):
 
 if __name__ == "__main__":
     logger.info("Welcome!")
-    logger.info("Initialising signals handling and sanitizing the directories (step 1/5)")
+    logger.info(
+        "Initialising signals handling and sanitizing the directories (step 1/5)"
+    )
     signal.signal(signal.SIGINT, handler_stop_signals)
     signal.signal(signal.SIGTERM, handler_stop_signals)
 
@@ -69,13 +75,15 @@ if __name__ == "__main__":
                 sys.exit(1)
 
     # Let's make sure the used base path exists
-    img_path = "/home/pi/PlanktoScope/img"  # FIXME: this path is incorrect - why doesn't it cause side effects?
+    img_path = "/home/pi/img"
     # check if this path exists
     if not os.path.exists(img_path):
         # create the path!
         os.makedirs(img_path)
 
-    logger.info(f"This PlanktoScope's Raspberry Pi's serial number is {planktoscope.uuidName.getSerial()}")
+    logger.info(
+        f"This PlanktoScope's Raspberry Pi's serial number is {planktoscope.uuidName.getSerial()}"
+    )
     logger.info(
         f"This PlanktoScope's machine name is {planktoscope.identity.load_machine_name()}"
     )
@@ -83,7 +91,7 @@ if __name__ == "__main__":
         f"This PlanktoScope's deprecated name is {planktoscope.uuidName.machineName(machine=planktoscope.uuidName.getSerial())}"
     )
 
-    # Prepare the event for a gracefull shutdown
+    # Prepare the event for a graceful shutdown
     shutdown_event = multiprocessing.Event()
     shutdown_event.clear()
 
@@ -96,7 +104,7 @@ if __name__ == "__main__":
     # Starts the imager control process
     logger.info("Starting the imager control process (step 3/5)")
     try:
-        imager_thread = imagernew.Worker(shutdown_event)
+        imager_thread = imager.Worker(shutdown_event)
     except Exception as e:
         logger.error(f"The imager control process could not be started: {e}")
         imager_thread = None
@@ -107,7 +115,7 @@ if __name__ == "__main__":
     logger.info("Starting the light control process (step 4/5)")
     try:
         light_thread = planktoscope.light.LightProcess(shutdown_event)
-    except Exception as e:
+    except Exception:
         logger.error("The light control process could not be started")
         light_thread = None
     else:

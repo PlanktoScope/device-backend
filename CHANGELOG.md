@@ -6,6 +6,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project uses [Calendar Versioning](https://calver.org/) with a `YYYY.minor.patch` scheme.
 All dates in this file are given in the [UTC time zone](https://en.wikipedia.org/wiki/Coordinated_Universal_Time).
 
+## Unreleased
+
+### Removed
+
+- (Hardware controller) The old raspimjpeg-based imager has been fully deleted, having been deprecated in v2024.0.0-alpha.2.
+- Support for deployment on ARMv7 (32-bit OSes) is removed, having been deprecated in PlanktoScope OS v2024.0.0-beta.0.
+
+### Fixed
+
+- (Hardware controller) The ISO value stored in dataset metadata now correctly matches the user-set ISO setting, instead of being a constant scaling of the image gain (which is calculated from the user-set ISO according to a camera model-specific scaling factor). This fixes a regression introduced with v2024.0.0-beta.2.
+- (Hardware controller) Error handling of a failure to create a raw image dataset directory (e.g. because the directory already exists, due to a duplicate acquisition ID) now correctly terminates the attempted data acquisition run.
+
+## v2024.0.0 - 2024-12-25
+
+### Fixed
+
+- (Segmenter) The segmenter now correctly sets the `img_rank` metadata field of the EcoTaxa export to `1`, instead of setting it to an incrementing index which makes exports un-importable by EcoTaxa for datasets with more than ~32,000 objects.
+
+## v2024.0.0-beta.3 - 2024-11-30
+
+### Changed
+
+- (Hardware controller) The resolution of the camera preview stream has been reduced from 960x720 to 800x600 in an attempt to mitigate hard-to-reproduce preview stream latency problems.
+- (Hardware controller) The bitrate of the camera preview stream has been reduced slightly from ~8 Mbps to ~7 Mbps.
+- (Hardware controller) The framerate of the camera preview stream is now explicitly limited to 25 fps.
+
+### Fixed
+
+- (Breaking change; segmenter) The previously incorrect method for filtering segmented objects by size has now been corrected to filter object sizes by filled area rather than bounding box area, and directly using the mesh size as the threshold for equivalent spherical diameter (ESD) instead of calculating a fictional ESD.
+
 ## v2024.0.0-beta.2 - 2024-08-19
 
 ### Changed
