@@ -22,10 +22,6 @@ import enum
 
 logger.info("planktoscope.light is loaded")
 
-print(RPi.GPIO.OUT)
-print(RPi.GPIO.HIGH)
-
-
 class i2c_led:
     """
     LM36011 Led controller
@@ -57,7 +53,7 @@ class i2c_led:
         RPi.GPIO.setwarnings(False)
         RPi.GPIO.setmode(RPi.GPIO.BCM)
         RPi.GPIO.setup(self.LED_PIN, RPi.GPIO.OUT)
-        # RPi.GPIO.output(self.LED_PIN, RPi.GPIO.HIGH)
+        RPi.GPIO.output(self.LED_PIN, RPi.GPIO.HIGH)
         self.on = False
         try:
             self.force_reset()
@@ -223,20 +219,19 @@ class LightProcess(multiprocessing.Process):
         if last_message:
             if "action" in last_message:
                 action = last_message["action"]
-                # TODO: Consider renaming on and off to light_on and light_off
                 if action == "on":
                     # {"action":"on"}
                     logger.info("Turning the light on.")
                     self.led_on()
                     self.light_client.client.publish(
-                        "status/light", '{"status":"Led: On"}'
+                        "status/light", '{"status":"On"}'
                     )
                 elif action == "off":
                     # {"action":"off"}
                     logger.info("Turn the light off.")
                     self.led_off()
                     self.light_client.client.publish(
-                        "status/light", '{"status":"Led: Off"}'
+                        "status/light", '{"status":"Off"}'
                     )
                 else:
                     logger.warning(
