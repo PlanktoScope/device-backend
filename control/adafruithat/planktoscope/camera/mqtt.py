@@ -112,11 +112,7 @@ class Worker(threading.Thread):
         # TODO(ethanjli): expose the camera settings over "camera/settings" instead! This requires
         # removing the "settings" action from the "imager/image" route which is a breaking change
         # to the MQTT API, so we'll do this later.
-        mqtt = messaging.MQTT_Client(topic="imager/image", name="imager_camera_client")
-        # TODO(ethanjli): allow an MQTT client to trigger this broadcast with an MQTT command. This
-        # requires modifying the MQTT API (by adding a new route), and we'll want to make the
-        # Node-RED dashboard query that route at startup, so we'll do this later.
-        mqtt.client.publish("status/imager", json.dumps({"camera_name": self._camera.camera_name}))
+        mqtt = messaging.MQTT_Client(topic="camera/info", name="imager_camera")
 
         try:
             while not self._stop_event_loop.is_set():
@@ -127,8 +123,16 @@ class Worker(threading.Thread):
                 if (message := mqtt.msg) is None:
                     continue
                 self._receive_message(message)
-                if (status_update := mqtt.read_message()) is not None:
-                    mqtt.client.publish("status/imager", status_update)
+                if message["topic"] == "camera/info" and message["payload"].get("action") == "get":
+                    camera_name = self._camera.camera_name
+                    response_payload = json.dumps(
+                        {"status": "success", "camera_name": camera_name}
+                    )
+                    mqtt.client.publish("status/camera/info", response_payload)
+                    loguru.logger.debug(
+                        f"Published camera name '{camera_name}' to topic 'status/camera/info'"
+                    )
+
         finally:
             loguru.logger.info("Stopping the MQTT API...")
             mqtt.shutdown()
