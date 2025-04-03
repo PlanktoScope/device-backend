@@ -248,7 +248,8 @@ class LightProcess(multiprocessing.Process):
                 return
         if last_message:
             if "action" in last_message:
-                if last_message["action"] == "on":
+                action = last_message["action"]
+                if action == "on":
                     # {"action":"on", "led":"1"}
                     logger.info("Turning the light on.")
                     if "led" not in last_message or last_message["led"] == 1:
@@ -265,7 +266,7 @@ class LightProcess(multiprocessing.Process):
                         self.light_client.client.publish(
                             "status/light", '{"status":"Error with led number"}'
                         )
-                elif last_message["action"] == "off":
+                elif action == "off":
                     # {"action":"off", "led":"1"}
                     logger.info("Turn the light off.")
                     if "led" not in last_message or last_message["led"] == 1:
