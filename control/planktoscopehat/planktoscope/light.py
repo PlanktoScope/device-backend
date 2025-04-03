@@ -14,8 +14,6 @@ import planktoscope.mqtt
 
 import RPi.GPIO
 
-import subprocess  # nosec
-
 # Library to send command over I2C for the light module on the fan
 import smbus2 as smbus
 
@@ -23,11 +21,6 @@ import enum
 
 
 logger.info("planktoscope.light is loaded")
-
-
-def i2c_update():
-    # Update the I2C Bus in order to really update the LEDs new values
-    subprocess.Popen("i2cdetect -y 1".split(), stdout=subprocess.PIPE)  # nosec
 
 
 class i2c_led:
