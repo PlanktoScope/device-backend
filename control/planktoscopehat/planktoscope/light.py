@@ -173,51 +173,6 @@ class i2c_led:
             b = bus.read_byte_data(self.DEVICE_ADDRESS, address)
         return b
 
-
-class pwm_led:
-    def __init__(self, led):
-        RPi.GPIO.setmode(RPi.GPIO.BCM)
-        self.led = led
-        if self.led == 0:
-            RPi.GPIO.setup(led0Pin, RPi.GPIO.OUT)
-            RPi.GPIO.output(led0Pin, RPi.GPIO.LOW)
-            self.pwm0 = RPi.GPIO.PWM(led0Pin, FREQUENCY)
-            self.pwm0.start(0)
-        elif self.led == 1:
-            RPi.GPIO.setup(led1Pin, RPi.GPIO.OUT)
-            RPi.GPIO.output(led1Pin, RPi.GPIO.LOW)
-            self.pwm1 = RPi.GPIO.PWM(led1Pin, FREQUENCY)
-            self.pwm1.start(0)
-
-    def change_duty(self, dc):
-        if self.led == 0:
-            self.pwm0.ChangeDutyCycle(dc)
-        elif self.led == 1:
-            self.pwm1.ChangeDutyCycle(dc)
-
-    def off(self):
-        if self.led == 0:
-            logger.debug("Turning led 1 off")
-            self.pwm0.ChangeDutyCycle(0)
-        elif self.led == 1:
-            logger.debug("Turning led 2 off")
-            self.pwm1.ChangeDutyCycle(0)
-
-    def on(self):
-        if self.led == 0:
-            logger.debug("Turning led 1 on")
-            self.pwm0.ChangeDutyCycle(100)
-        elif self.led == 1:
-            logger.debug("Turning led 2 on")
-            self.pwm1.ChangeDutyCycle(100)
-
-    def stop(self):
-        if self.led == 0:
-            self.pwm0.stop()
-        elif self.led == 1:
-            self.pwm1.stop()
-
-
 ################################################################################
 # Main Segmenter class
 ################################################################################
