@@ -22,6 +22,9 @@ import enum
 
 logger.info("planktoscope.light is loaded")
 
+print(RPi.GPIO.OUT)
+print(RPi.GPIO.HIGH)
+
 
 class i2c_led:
     """
@@ -41,7 +44,8 @@ class i2c_led:
     # This constant defines the current (mA) sent to the LED, 10 allows the use of the full ISO scale and results in a voltage of 2.77v
     DEFAULT_CURRENT = 10
 
-    LED_selectPin = 18
+    # This is the BCM pin of the led
+    LED_PIN = 18
 
     def __init__(self):
         self.VLED_short = False
@@ -52,8 +56,8 @@ class i2c_led:
         self.IVFM = False
         RPi.GPIO.setwarnings(False)
         RPi.GPIO.setmode(RPi.GPIO.BCM)
-        RPi.GPIO.setup(self.LED_selectPin, RPi.GPIO.OUT)
-        self.output_to_led1()
+        RPi.GPIO.setup(self.LED_PIN, RPi.GPIO.OUT)
+        # RPi.GPIO.output(self.LED_PIN, RPi.GPIO.HIGH)
         self.on = False
         try:
             self.force_reset()
@@ -70,14 +74,6 @@ class i2c_led:
             logger.exception(f"Error with the LED control module, {e}")
             raise
         logger.debug(f"LED module id is {led_id}")
-
-    def output_to_led1(self):
-        logger.debug("Switching output to LED 1")
-        RPi.GPIO.output(self.LED_selectPin, RPi.GPIO.HIGH)
-
-    def output_to_led2(self):
-        logger.debug("Switching output to LED 2")
-        RPi.GPIO.output(self.LED_selectPin, RPi.GPIO.LOW)
 
     def get_id(self):
         led_id = self._read_byte(self.Register.id_reset)
@@ -187,39 +183,24 @@ class LightProcess(multiprocessing.Process):
         try:
             self.led = i2c_led()
             self.led.set_torch_current(self.led.DEFAULT_CURRENT)
-            self.led.output_to_led1()
             self.led.activate_torch_ramp()
             self.led.activate_torch()
             time.sleep(0.5)
-            self.led.output_to_led2()
-            time.sleep(0.5)
             self.led.deactivate_torch()
-            self.led.output_to_led1()
         except Exception as e:
             logger.error(
                 f"We have encountered an error trying to start the LED module, stopping now, exception is {e}"
             )
-            self.led.output_to_led2()
             raise e
         else:
             logger.success("planktoscope.light is initialised and ready to go!")
 
-    def led_off(self, led):
-        if led == 0:
-            logger.debug("Turning led 1 off")
-        elif led == 1:
-            logger.debug("Turning led 2 off")
+    def led_off(self):
+        logger.debug("Turning led off")
         self.led.deactivate_torch()
 
-    def led_on(self, led):
-        if led not in [0, 1]:
-            raise ValueError("Led number is wrong")
-        if led == 0:
-            logger.debug("Turning led 1 on")
-            self.led.output_to_led1()
-        elif led == 1:
-            logger.debug("Turning led 2 on")
-            self.led.output_to_led2()
+    def led_on(self):
+        logger.debug("Turning led on")
         self.led.activate_torch()
 
     @logger.catch
@@ -242,40 +223,21 @@ class LightProcess(multiprocessing.Process):
         if last_message:
             if "action" in last_message:
                 action = last_message["action"]
+                # TODO: Consider renaming on and off to light_on and light_off
                 if action == "on":
-                    # {"action":"on", "led":"1"}
+                    # {"action":"on"}
                     logger.info("Turning the light on.")
-                    if "led" not in last_message or last_message["led"] == 1:
-                        self.led_on(0)
-                        self.light_client.client.publish(
-                            "status/light", '{"status":"Led 1: On"}'
-                        )
-                    elif last_message["led"] == 2:
-                        self.led_on(1)
-                        self.light_client.client.publish(
-                            "status/light", '{"status":"Led 2: On"}'
-                        )
-                    else:
-                        self.light_client.client.publish(
-                            "status/light", '{"status":"Error with led number"}'
-                        )
+                    self.led_on()
+                    self.light_client.client.publish(
+                        "status/light", '{"status":"Led: On"}'
+                    )
                 elif action == "off":
-                    # {"action":"off", "led":"1"}
+                    # {"action":"off"}
                     logger.info("Turn the light off.")
-                    if "led" not in last_message or last_message["led"] == 1:
-                        self.led_off(0)
-                        self.light_client.client.publish(
-                            "status/light", '{"status":"Led 1: Off"}'
-                        )
-                    elif last_message["led"] == 2:
-                        self.led_off(1)
-                        self.light_client.client.publish(
-                            "status/light", '{"status":"Led 2: Off"}'
-                        )
-                    else:
-                        self.light_client.client.publish(
-                            "status/light", '{"status":"Error with led number"}'
-                        )
+                    self.led_off()
+                    self.light_client.client.publish(
+                        "status/light", '{"status":"Led: Off"}'
+                    )
                 else:
                     logger.warning(
                         f"We did not understand the received request {action} - {last_message}"
@@ -352,7 +314,6 @@ class LightProcess(multiprocessing.Process):
 if __name__ == "__main__":
     led = i2c_led()
     led.set_torch_current(30)
-    led.output_to_led1()
     led.activate_torch_ramp()
     led.activate_torch()
     time.sleep(5)
