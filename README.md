@@ -1,3 +1,5 @@
+IMPORTANT: This repository is archived and read-only, development now happens at https://github.com/PlanktoScope/PlanktoScope
+
 # device-backend
 
 All backend software underneath the PlanktoScope device's standard API.
